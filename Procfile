@@ -1,1 +1,1 @@
-web: gunicorn app:app
+web: gunicorn diskal_app:app
