@@ -7,7 +7,7 @@ app = Dash(__name__)
 
 product_stats = pd.read_excel('diskal_stats.xlsx')
 # Create a basic bar chart using Plotly
-fig = px.bar(product_stats, x='Product', y='Sales', title='Product Sales Statistics')
+fig = px.bar(product_stats.head(50), x='תאור מוצר', y='נמכר בחודש הקודם', title='Product Sales Statistics')
 
 app.layout = html.Div(children=[
     html.H1(children='Store Product Dashboard'),
