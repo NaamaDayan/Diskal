@@ -1,0 +1,18 @@
+from dash import Dash, dcc, html
+import pandas as pd
+import plotly.express as px
+
+app = Dash(__name__)
+
+
+product_stats = pd.read_excel('diskal_stats.xlsx')
+# Create a basic bar chart using Plotly
+fig = px.bar(product_stats, x='Product', y='Sales', title='Product Sales Statistics')
+
+app.layout = html.Div(children=[
+    html.H1(children='Store Product Dashboard'),
+    dcc.Graph(id='sales-graph', figure=fig)
+])
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
