@@ -107,4 +107,4 @@ def render_content(active_tab):
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(ip='0.0.0.0', port=8050)
