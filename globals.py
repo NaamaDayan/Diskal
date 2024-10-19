@@ -14,7 +14,7 @@ sales_df = pd.read_csv('data/נעמה חשבוניות.csv')
 sales_df[TOTAL_REVENUE] = pd.to_numeric(sales_df[TOTAL_REVENUE], errors='coerce')
 sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
 
-sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%Y-%m-%d')
+sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='mixed')
 sales_df[MONTH] = sales_df[DATE].dt.month
 sales_df = sales_df[sales_df[TOTAL_REVENUE] > 0]
 sales_df = sales_df[sales_df[SUM] > 0]
@@ -24,11 +24,11 @@ orders_df = pd.read_csv('data/נעמה הזמנות.csv')
 orders_df[TOTAL_REVENUE] = pd.to_numeric(orders_df[TOTAL_REVENUE], errors='coerce')
 orders_df[SUM] = pd.to_numeric(orders_df[SUM], errors='coerce')
 orders_df = orders_df[orders_df[CUSTOMER_NAME] != 'בדיקות']
-orders_df[ORDER_DATE] = pd.to_datetime(orders_df[ORDER_DATE], format='%d/%m/%Y')
+orders_df[ORDER_DATE] = pd.to_datetime(orders_df[ORDER_DATE], format='mixed')
 orders_df[MONTH] = orders_df[ORDER_DATE].dt.month
 
 procurement_df = pd.read_csv('data/נעמה חשבונית רכש.csv')
-procurement_df[DATE] = pd.to_datetime(procurement_df[DATE], format='%d/%m/%Y')
+procurement_df[DATE] = pd.to_datetime(procurement_df[DATE], format='mixed')
 procurement_df = procurement_df[procurement_df[DATE] > datetime(2016, 1, 1)]
 procurement_df[MONTH] = procurement_df[DATE].dt.month
 procurement_df[SUM] = pd.to_numeric(procurement_df[SUM], errors='coerce')
