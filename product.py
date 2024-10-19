@@ -49,8 +49,8 @@ def register_product_callbacks(app):
         orders_over_time = orders_over_time.sort_values(MONTH)
         orders_over_time[MONTH] = orders_over_time[MONTH].astype(str)
 
-        procurement_over_time = procurement_df[procurement_df[PRODUCT_NAME] == selected_product].groupby(MONTH)[
-            SUM, QUANTITY].sum().reset_index()
+        procurement_over_time = procurement_df[procurement_df[PRODUCT_NAME] == selected_product].groupby(MONTH)[[
+            SUM, QUANTITY]].sum().reset_index()
         procurement_over_time = procurement_over_time.sort_values(MONTH)
         procurement_over_time[MONTH] = procurement_over_time[MONTH].astype(str)
 
