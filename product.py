@@ -3,10 +3,9 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from dash import dcc, html
 from dash.dependencies import Input, Output
-from google.type.calendar_period_pb2 import MONTH
 
 from constants import PRODUCT_NAME, TOTAL_REVENUE, SUM, \
-    QUANTITY
+    QUANTITY, MONTH
 from globals import sales_df, procurement_df, orders_df
 
 

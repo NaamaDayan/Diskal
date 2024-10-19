@@ -4,10 +4,9 @@ import plotly.graph_objects as go
 from dash import dash_table
 from dash import dcc, html
 from dash.dependencies import Input, Output
-from google.type.calendar_period_pb2 import MONTH
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
-    AGENT_NAME, PRODUCT_ID
+    AGENT_NAME, PRODUCT_ID, MONTH
 from globals import sales_df
 
 

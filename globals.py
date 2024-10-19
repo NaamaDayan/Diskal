@@ -1,9 +1,8 @@
 from datetime import datetime
 
 import pandas as pd
-from google.type.calendar_period_pb2 import MONTH
 
-from constants import TOTAL_REVENUE, CUSTOMER_NAME, SUM, DATE, ORDER_DATE
+from constants import TOTAL_REVENUE, CUSTOMER_NAME, SUM, DATE, ORDER_DATE, MONTH
 
 # stats_df = pd.read_excel('data/זמינות מוצרים.xlsx')
 # stats_df[MANUFACTURER] = stats_df[PRODUCT_ID].str.extract('([A-Za-z]+)')
