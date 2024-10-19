@@ -1,110 +1,175 @@
-import dash
+import dash_bootstrap_components as dbc
+import plotly.express as px
+import plotly.graph_objects as go
+from dash import dash_table
 from dash import dcc, html
 from dash.dependencies import Input, Output
-import pandas as pd
-import plotly.express as px
-import dash_bootstrap_components as dbc
+from google.type.calendar_period_pb2 import MONTH
 
-from constants import MANUFACTURER, SALES_ALL_MONTHS, CURRENT_MONTH_SALES, PRODUCT_ID, SALES_1_MONTH_BEFORE, \
-    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, PRODUCT_NAME
-from sales_and_orders import register_sales_and_revenue_callbacks, get_sales_and_orders_view
+from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
+    AGENT_NAME, PRODUCT_ID
+from globals import sales_df
 
-# Load Excel data
-df = pd.read_excel('data/diskal_stats.xlsx')
-df[MANUFACTURER] = df[PRODUCT_ID].str.extract('([A-Za-z]+)')
-df[MANUFACTURER] = df[MANUFACTURER].apply(lambda s: s if type(s) == str and len(s) >= 2 else None)
-df[SALES_ALL_MONTHS] = df[SALES_1_MONTH_BEFORE] + df[SALES_2_MONTH_BEFORE] + df[SALES_3_MONTH_BEFORE] + df[
-    CURRENT_MONTH_SALES]
 
-# Initialize the Dash app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE], suppress_callback_exceptions=True)
-register_sales_and_revenue_callbacks(app)
+def get_overview_view():
+    return (
+        html.Div([
+            html.Br(),
+            dbc.Row([
+                dbc.Col([
+                    html.Label("בחר לקוח", style={'color': 'white'}),
+                    dcc.Dropdown(
+                        id='customer-dropdown',
+                        options=[{'label': cust, 'value': cust} for cust in sales_df[CUSTOMER_NAME].unique()] + [
+                            {'label': 'הכל', 'value': 'all'}],
+                        multi=False,
+                        value='all',
+                    )], width=4),
 
-# Create the layout with tabs
-app.layout = dbc.Container(fluid=True, children=[
-    dbc.Tabs([
-        dbc.Tab(label='Overview', tab_id='overview-tab'),
-        dbc.Tab(label='Sales and Orders', tab_id='sales-tab'),
-        dbc.Tab(label='Specific Product', tab_id='product-tab'),
-    ], id='tabs', active_tab='overview-tab'),
+                dbc.Col([
+                    html.Label("בחר מוצר", style={'color': 'white'}),
+                    dcc.Dropdown(
+                        id='product-dropdown',
+                        options=[{'label': prod, 'value': prod} for prod in sales_df[PRODUCT_NAME].unique()] + [
+                            {'label': 'הכל', 'value': 'all'}],
+                        multi=False,
+                        value='all',
+                    )], width=4),
 
-    # Tab content
-    html.Div(id='tabs-content')
-])
-
-# Callback to update tab content
-@app.callback(
-    Output('tabs-content', 'children'),
-    Input('tabs', 'active_tab')
-)
-def render_content(active_tab):
-    if active_tab == 'overview-tab':
-        # Create figures for the graphs
-        popular_manufacturers = df.groupby(MANUFACTURER)[SALES_ALL_MONTHS].sum().sort_values(ascending=False)[:10].index
-        new_df = df.copy()
-        new_df[MANUFACTURER] = new_df[MANUFACTURER].apply(lambda x: x if x in popular_manufacturers else 'other')
-        sales_by_manufacturer = new_df.groupby(MANUFACTURER)[SALES_ALL_MONTHS].sum().reset_index()
-        fig_pie = px.pie(sales_by_manufacturer,
-                         values=SALES_ALL_MONTHS,
-                         names=MANUFACTURER,
-                         title='Sales Share by Manufacturer',
-                         template='plotly_dark')
-
-        popular_products = df.nlargest(10, SALES_ALL_MONTHS)
-        fig_popular = px.bar(popular_products,
-                             x=PRODUCT_NAME,
-                             y=SALES_ALL_MONTHS,
-                             title='Top 10 Most Popular Products',
-                             color=SALES_ALL_MONTHS,
-                             template='plotly_dark')
-
-        # Prepare data for sales comparison bar chart
-        sales_comparison_data = [
-            df[SALES_3_MONTH_BEFORE].sum(),
-            df[SALES_2_MONTH_BEFORE].sum(),
-            df[SALES_1_MONTH_BEFORE].sum()
-        ]
-        fig_sales_comparison = px.bar(
-            x=['3 Months Before', '2 Months Before', '1 Month Before'],
-            y=sales_comparison_data,
-            title='Sales Comparison Over Last 3 Months',
-            labels={'x': 'Month', 'y': 'Sales'},
-            template='plotly_dark'
-        )
-
-        # # Prepare data for orders bar chart
-        # orders_data = {
-        #     'Orders': df['Current Orders'].sum(),  # Placeholder for actual orders column
-        #     'Open Orders': df['Open Orders'].sum()  # Placeholder for actual open orders column
-        # }
-        # fig_orders = px.bar(
-        #     x=list(orders_data.keys()),
-        #     y=list(orders_data.values()),
-        #     title='Orders Overview',
-        #     labels={'x': 'Order Type', 'y': 'Count'},
-        #     template='plotly_dark'
-        # )
-
-        return (
-            html.Div([
-                html.Br(),
-                dbc.Row([
-                    dbc.Col(dcc.Graph(id='manufacturer-sales-pie', figure=fig_pie), width=6),
-                    dbc.Col(dcc.Graph(id='popular-products-bar', figure=fig_popular), width=6)
-                ], justify='center'),
-                html.Br(),
-                dbc.Row([
-                    dbc.Col(dcc.Graph(id='sales-comparison-bar', figure=fig_sales_comparison), width=6),
-                    dbc.Col(dcc.Graph(id='orders-bar', figure=fig_sales_comparison), width=6),
-                ], justify='center')
+                dbc.Col([
+                    html.Label("בחר סוכן", style={'color': 'white'}),
+                    dcc.Dropdown(
+                        id='agent-dropdown',
+                        options=[{'label': prod, 'value': prod} for prod in sales_df[AGENT_NAME].unique()] + [
+                            {'label': 'הכל', 'value': 'all'}],
+                        multi=False,
+                        value='all',
+                    )], width=4),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='revenue-graph'), width=12),
+            ], justify='center'),
+            html.Br(),
+            dbc.Row([
+                dbc.Col(dbc.Card(dbc.CardBody(get_top_k_products_table())), width=6),
+                dbc.Col(get_best_products(), width=6),
+            ], justify='center'),
+            html.Br(),
+            dbc.Row([
+                dbc.Col(get_best_customers(), width=6),
+                dbc.Col(get_best_agents(), width=6),
+            ], justify='center'),
+            html.Br()
         ]))
 
-    elif active_tab == 'sales-tab':
-        return get_sales_and_orders_view()
 
-    elif active_tab == 'product-tab':
-        return html.Div("Specific Product tab content goes here.")
+def get_best_customers():
+    popular_customers = sales_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:10].index
+    new_df = sales_df.copy()
+    new_df[CUSTOMER_NAME] = new_df[CUSTOMER_NAME].apply(lambda x: x if x in popular_customers else 'other')
+    revenues_by_customer = new_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().reset_index()
+    customers_pie_chart = px.pie(revenues_by_customer,
+                                 values=TOTAL_REVENUE,
+                                 names=CUSTOMER_NAME,
+                                 title='לקוחות הכי רווחיים בשנה האחרונה',
+                                 template='plotly_dark')
 
-# Run the app
-if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050)
+    return dcc.Graph(id='customers-pie', figure=customers_pie_chart)
+
+
+def get_best_products():
+    popular_products = sales_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_product = sales_df[sales_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
+        TOTAL_REVENUE].sum().reset_index()
+    products_pie_chart = px.pie(revenues_by_product,
+                                values=TOTAL_REVENUE,
+                                names=PRODUCT_NAME,
+                                title='מוצרים הכי רווחיים בשנה האחרונה',
+                                template='plotly_dark')
+
+    return dcc.Graph(id='product-pie', figure=products_pie_chart)
+
+
+def get_top_k_products_table():
+    n_products = sales_df[PRODUCT_NAME].nunique()
+    popular_products = sales_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(
+        ascending=False).reset_index()[: int(0.2 * n_products)][PRODUCT_NAME].values
+    popular_products_df = sales_df[sales_df[PRODUCT_NAME].isin(popular_products)][[PRODUCT_ID, PRODUCT_NAME, TOTAL_REVENUE]].sort_values(TOTAL_REVENUE,
+        ascending=False)
+    revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / sales_df[TOTAL_REVENUE].sum()
+    popular_products_df = popular_products_df[[PRODUCT_NAME]].drop_duplicates()
+    return html.Div([html.Label(f" 20 אחוז מהמוצרים שמכניסים 70 אחוז מהרווח", style={'color': 'white'}),
+                     dash_table.DataTable(
+                         data=popular_products_df.to_dict('records'),
+                         columns=[{'name': col, 'id': col} for col in popular_products_df.columns],
+                         page_size=10,
+                         style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+                         style_table={"overflowX": "hidden",  "width": "100%"},
+                         style_cell={
+                             # "overflow": "hidden",
+                             "textOverflow": "ellipsis",
+                             "maxWidth": 0,
+                             'textAlign': 'right',
+                             'direction': 'rtl'
+                         },
+                         style_header={
+                             "backgroundColor": "rgb(30, 30, 30)",
+                             "color": "white",
+                             'direction': 'rtl'
+                         }
+                     )])
+
+
+def get_best_agents():
+    popular_agents = sales_df.groupby(AGENT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_agent = sales_df[sales_df[AGENT_NAME].isin(popular_agents)].groupby(AGENT_NAME)[
+        TOTAL_REVENUE].sum().reset_index()
+    agents_pie_chart = px.pie(revenues_by_agent,
+                              values=TOTAL_REVENUE,
+                              names=AGENT_NAME,
+                              title='סוכנים שהרוויחו הכי הרבה בשנה האחרונה',
+                              template='plotly_dark')
+
+    return dcc.Graph(id='product-pie', figure=agents_pie_chart)
+
+
+def register_sales_and_revenue_callbacks(app):
+    @app.callback(
+        Output('revenue-graph', 'figure'),
+        [Input('customer-dropdown', 'value'),
+         Input('agent-dropdown', 'value'),
+         Input('product-dropdown', 'value')]
+    )
+    def update_graph(selected_customer, selected_agent, selected_product):
+        filtered_sales_df = sales_df
+        if selected_product != ALL:
+            filtered_sales_df = filtered_sales_df[filtered_sales_df[PRODUCT_NAME] == selected_product]
+        if selected_agent != ALL:
+            filtered_sales_df = filtered_sales_df[filtered_sales_df[AGENT_NAME] == selected_agent]
+        if selected_customer != ALL:
+            filtered_sales_df = filtered_sales_df[filtered_sales_df[CUSTOMER_NAME] == selected_customer]
+        filtered_sales_df = filtered_sales_df.groupby(MONTH)[[TOTAL_REVENUE, SUM]].sum().reset_index().sort_values(MONTH)
+        filtered_sales_df[MONTH] = filtered_sales_df[MONTH].astype(str)
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=filtered_sales_df[MONTH],
+            y=filtered_sales_df[TOTAL_REVENUE],
+            name=TOTAL_REVENUE,
+            marker_color='blue'
+        ))
+        fig.add_trace(go.Bar(
+            x=filtered_sales_df[MONTH],
+            y=filtered_sales_df[SUM],
+            name=SUM,
+            marker_color='red'
+        ))
+
+        fig.update_layout(
+            title='הכנסות ורווחים פר חודש',
+            xaxis_title=DATE,
+            yaxis_title='ש"ח',
+            barmode='group',
+            template='plotly_dark'
+        )
+        return fig
