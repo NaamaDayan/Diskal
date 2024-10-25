@@ -6,7 +6,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, TOTAL_REVENUE, SUM, ALL, MONTH
-from globals import sales_df
+from globals import bills_df
 
 
 def get_customer_view():
@@ -18,16 +18,16 @@ def get_customer_view():
                     html.Label("בחר לקוח", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='customer-dropdown',
-                        options=[{'label': cust, 'value': cust} for cust in sales_df[CUSTOMER_NAME].unique()],
+                        options=[{'label': cust, 'value': cust} for cust in bills_df[CUSTOMER_NAME].unique()],
                         multi=False,
-                        value=sales_df[CUSTOMER_NAME].unique()[0],
+                        value=bills_df[CUSTOMER_NAME].unique()[0],
                     )], width=6),
 
                 dbc.Col([
                     html.Label("בחר מוצר", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='product-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in sales_df[PRODUCT_NAME].unique()] + [
+                        options=[{'label': prod, 'value': prod} for prod in bills_df[PRODUCT_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -45,8 +45,8 @@ def get_customer_view():
 
 
 def get_best_products():
-    popular_products = sales_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
-    revenues_by_product = sales_df[sales_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
+    popular_products = bills_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_product = bills_df[bills_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
         TOTAL_REVENUE].sum().reset_index()
     products_pie_chart = px.pie(revenues_by_product,
                                 values=TOTAL_REVENUE,
@@ -65,11 +65,11 @@ def register_customer_callbacks(app):
     )
     def update_graph(selected_customer, selected_product):
         if selected_product == ALL:
-            filtered_df = sales_df[sales_df[CUSTOMER_NAME] == selected_customer].groupby(MONTH)[
+            filtered_df = bills_df[bills_df[CUSTOMER_NAME] == selected_customer].groupby(MONTH)[
                 [TOTAL_REVENUE, SUM]].sum().reset_index()
         else:
-            filtered_df = sales_df[(sales_df[CUSTOMER_NAME] == selected_customer) &
-                                   (sales_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
+            filtered_df = bills_df[(bills_df[CUSTOMER_NAME] == selected_customer) &
+                                   (bills_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
                 [TOTAL_REVENUE, SUM]].sum().reset_index()
         filtered_df = filtered_df.sort_values(MONTH)
         filtered_df[MONTH] = filtered_df[MONTH].astype(str)

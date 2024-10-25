@@ -12,13 +12,37 @@ SUM = "סכום (שח)"
 TOTAL_REVENUE = "רווח (שח)"
 AGENT_NAME = 'שם סוכן'
 MONTH = 'month'
+YEAR = 'year'
 DATE = "תאריך"
 ORDER_DATE = "תאריך ההזמנה"
 QUANTITY = "כמות"
+INVENTORY_QUANTITY = "כמות במלאי"
 ALL = 'all'
+YEAR_MONTH = 'year_month'
+TOTAL_ORDERS_THIS_YEAR = 'סה"כ_הזמנות_בשנה_האחרונה'
+QUANTITY_PROCUREMENT = 'כמות הזמנות מהספק'
+SUM_PROCUREMENT = 'תשלום לספק'
 DROP_DOWN_STYLE = {
-                'backgroundColor': '#333',
-                # 'color': 'white',
-                # 'border': '1px solid #555',
-                # 'borderRadius': '4px'
-            }
+    'backgroundColor': '#333',
+    # 'color': 'white',
+    # 'border': '1px solid #555',
+    # 'borderRadius': '4px'
+}
+PROCUREMENT_ID = 'חשבונית'
+STYLE_DATA = {"backgroundColor": "rgb(50, 50, 50)", "color": "white"}
+STYLE_TABLE = {"overflowX": "auto", "maxWidth": "100%", "tableLayout": "fixed"}
+
+STYLE_CELL = {
+    "overflow": "hidden",
+    "textOverflow": "ellipsis",
+    "maxWidth": "0",
+    'textAlign': 'right',  # Align text to the right
+    'direction': 'rtl',  # Keep RTL direction for text
+}
+
+STYLE_HEADER = {
+    "backgroundColor": "rgb(30, 30, 30)",
+    "color": "white",
+    'direction': 'rtl',
+    "width": "auto",
+}
