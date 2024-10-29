@@ -42,8 +42,10 @@ def get_product_sold_quantities_over_months():
     sales_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_sales'], values='נמכר',
                                              fill_value=0)
 
-    sales_quantities[SALES_ALL_MONTHS] = sales_quantities.sum(axis=1)
-    sales_quantities[SALES_6_MONTHS] = sales_quantities[sorted(sales_quantities.columns)[-6:]].sum(axis=1)
+    sales_all_months = sales_quantities.sum(axis=1)
+    sales_6_months = sales_quantities[sorted(sales_quantities.columns)[-6:]].sum(axis=1)
+    sales_quantities[SALES_ALL_MONTHS] = sales_all_months
+    sales_quantities[SALES_6_MONTHS] = sales_6_months
     orders_left_quantities[ORDERS_LEFT_TO_SUPPLY] = orders_left_quantities[sorted(orders_left_quantities.columns)[-3:]].sum(axis=1)
     revenue_ratio_df = merged_df.groupby(PRODUCT_ID)['% רווח למחיר + סיכום'].mean().reset_index().rename(
         {'% רווח למחיר + סיכום': 'אחוז רווח ביחס למחיר (ממוצע השנה)'}, axis=1)

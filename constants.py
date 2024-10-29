@@ -21,6 +21,7 @@ INVENTORY_QUANTITY = "כמות במלאי"
 INVENTORY = 'מלאי זמין'
 PROCUREMENT_ORDERS = 'הזמנות רכש '
 ORDERS_LEFT_TO_SUPPLY = 'הזמנות לקוח שלא סופקו ב3 חודשים אחרונים'
+DAMAGED_INVENTORY = 'מחסן פגומים'
 ON_THE_WAY = 'עומד לבוא'
 ON_THE_WAY_STATUS = 'סטטוס שורת הזמנת רכש'
 ORDER_STATUS = 'סטטוס הזמנה'

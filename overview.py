@@ -8,12 +8,13 @@ import plotly.graph_objects as go
 from dash import dash_table
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from openpyxl import load_workbook
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
     AGENT_NAME, PRODUCT_ID, MONTH, TOTAL_ORDERS_THIS_YEAR, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
     QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
-    PROCUREMENT_ORDERS
+    PROCUREMENT_ORDERS, DAMAGED_INVENTORY
 from globals import bills_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
 
 
@@ -222,9 +223,9 @@ def get_best_agents():
 
 
 def get_updated_products_data(uploaded_products_df: pd.DataFrame):
-    damanged_quantity_df = \
+    damaged_quantity_df = \
         inventory_df.pivot_table(index=PRODUCT_ID, columns=['תאור מחסן'], values='כמות', fill_value=0)[
-            ['מחסן פגומים']].reset_index()
+            [DAMAGED_INVENTORY]].reset_index()
 
     on_the_way_orders = procurement_df[
         (procurement_df[ON_THE_WAY_STATUS] == 'עומד לבוא') & (procurement_df[ORDER_STATUS] != 'סגורה')]
@@ -236,14 +237,15 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     updated_products_data = pd.merge(updated_products_data, orders_left_df[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
                                      on=PRODUCT_ID, how='left')
 
-    updated_products_data = pd.merge(updated_products_data, damanged_quantity_df, on=PRODUCT_ID, how='left')
+    updated_products_data = pd.merge(updated_products_data, damaged_quantity_df, on=PRODUCT_ID, how='left')
     # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
+    updated_products_data[INVENTORY] = updated_products_data[INVENTORY] - updated_products_data[DAMAGED_INVENTORY].fillna(0)
 
     columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY, SALES_ALL_MONTHS, SALES_6_MONTHS] + \
               list(uploaded_products_df.columns[5:9]) + [
-        ORDERS_LEFT_TO_SUPPLY] + list(uploaded_products_df.columns[9:]) + ['מחסן פגומים']
+        ORDERS_LEFT_TO_SUPPLY] + list(uploaded_products_df.columns[9:]) + [DAMAGED_INVENTORY]
     return updated_products_data[columns]
 
 
@@ -317,14 +319,23 @@ def register_sales_and_revenue_callbacks(app):
         uploaded_products_df = pd.read_excel(io.BytesIO(decoded))
         updated_products_data = get_updated_products_data(uploaded_products_df)
 
-        # Save the modified DataFrame to an Excel file
+        # Save the modified DataFrame to an Excel file with RTL layout
         output = io.BytesIO()
-        updated_products_data.to_excel(output, index=False)
-        output.seek(0)
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            updated_products_data.to_excel(writer, index=False, sheet_name='Sheet1')
 
-        return "הקובץ הועלה בהצלחה! הורדנו למחשב את הקובץ המעודכן", dcc.send_data_frame(updated_products_data.to_excel,
-                                                                                        "updated_" + filename,
-                                                                                        index=False)
+        output.seek(0)
+        workbook = load_workbook(output)
+        sheet = workbook['Sheet1']
+        sheet.sheet_view.rightToLeft = True
+
+        final_output = io.BytesIO()
+        workbook.save(final_output)
+        final_output.seek(0)
+
+        return "הקובץ הועלה בהצלחה! הורדנו למחשב את הקובץ המעודכן", dcc.send_bytes(final_output.getvalue(),
+                                                                                   "updated_" + filename)
+
 
     @app.callback(
         Output("dying-products-data", "data"),
