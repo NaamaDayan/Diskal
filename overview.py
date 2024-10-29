@@ -5,14 +5,16 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import dash_table, callback_context
+from dash import dash_table
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
     AGENT_NAME, PRODUCT_ID, MONTH, TOTAL_ORDERS_THIS_YEAR, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
-    QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, PROCUREMENT_ID
-from globals import bills_df, inventory_df, orders_quantities_df, sales_quantities_df, revenue_ratio_df, procurement_df
+    QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, SALES_ALL_MONTHS, \
+    SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
+    PROCUREMENT_ORDERS
+from globals import bills_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
 
 
 def parse_contents(contents, filename):
@@ -107,9 +109,9 @@ def get_overview_view():
                 dbc.Col(dbc.Card(dbc.CardBody(get_best_agents())), width=6),
             ], justify='center'),
             html.Br(),
-            dbc.Row([
-                dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
-            ], justify='center'),
+            # dbc.Row([
+            #     dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
+            # ], justify='center'),
             html.Br()
         ]))
 
@@ -130,6 +132,7 @@ def get_dying_products_by_n_orders(n_orders_last_year: int):
                                                              how='inner', on=PRODUCT_ID)
 
     products_procurement = procurement_df.rename({QUANTITY: QUANTITY_PROCUREMENT, SUM: SUM_PROCUREMENT}, axis=1)
+    products_procurement = products_procurement[products_procurement['סטטוס שורת הזמנת רכש'].isna()]
     unique_products_procurement = products_procurement.groupby([PRODUCT_ID, PRODUCT_NAME]).sum()[
         [SUM_PROCUREMENT, QUANTITY_PROCUREMENT]].reset_index()
 
@@ -139,7 +142,7 @@ def get_dying_products_by_n_orders(n_orders_last_year: int):
                                                                  QUANTITY_PROCUREMENT]], how='inner', on=PRODUCT_ID)
 
     dead_products_stats = pd.merge(dead_products_with_inventory, products_procurement[
-        [PRODUCT_ID, PRODUCT_NAME, DATE, PROCUREMENT_ID, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
+        [PRODUCT_ID, PRODUCT_NAME, ORDER_DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
                                    on=PRODUCT_ID)
 
     return dead_products_with_inventory_and_procurement, dead_products_stats
@@ -221,14 +224,27 @@ def get_best_agents():
 def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     damanged_quantity_df = \
         inventory_df.pivot_table(index=PRODUCT_ID, columns=['תאור מחסן'], values='כמות', fill_value=0)[
-            ['מחסן פגומים', 'מחסן ראשי']].reset_index()
+            ['מחסן פגומים']].reset_index()
 
-    updated_products_data = pd.merge(uploaded_products_df, orders_quantities_df, on=PRODUCT_ID, how='outer')
-    updated_products_data = pd.merge(updated_products_data, sales_quantities_df, on=PRODUCT_ID, how='outer')
+    on_the_way_orders = procurement_df[
+        (procurement_df[ON_THE_WAY_STATUS] == 'עומד לבוא') & (procurement_df[ORDER_STATUS] != 'סגורה')]
+    on_the_way_orders = on_the_way_orders.groupby(PRODUCT_ID)[QUANTITY].sum().reset_index().rename({QUANTITY: ON_THE_WAY}, axis=1)
+
+    updated_products_data = pd.merge(uploaded_products_df,
+                                     sales_quantities_df[[SALES_ALL_MONTHS, SALES_6_MONTHS, PRODUCT_ID]], on=PRODUCT_ID,
+                                     how='left')
+    updated_products_data = pd.merge(updated_products_data, orders_left_df[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
+                                     on=PRODUCT_ID, how='left')
+
     updated_products_data = pd.merge(updated_products_data, damanged_quantity_df, on=PRODUCT_ID, how='left')
-    updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
+    # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
-    return updated_products_data
+    updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
+
+    columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY, SALES_ALL_MONTHS, SALES_6_MONTHS] + \
+              list(uploaded_products_df.columns[5:9]) + [
+        ORDERS_LEFT_TO_SUPPLY] + list(uploaded_products_df.columns[9:]) + ['מחסן פגומים']
+    return updated_products_data[columns]
 
 
 def register_sales_and_revenue_callbacks(app):
@@ -248,7 +264,8 @@ def register_sales_and_revenue_callbacks(app):
             filtered_sales_df = filtered_sales_df[filtered_sales_df[AGENT_NAME] == selected_agent]
         if selected_customer != ALL:
             filtered_sales_df = filtered_sales_df[filtered_sales_df[CUSTOMER_NAME] == selected_customer]
-        filtered_sales_df = filtered_sales_df.groupby(MONTH)[[TOTAL_REVENUE, SUM]].sum().reset_index().sort_values(MONTH)
+        filtered_sales_df = filtered_sales_df.groupby(MONTH)[[TOTAL_REVENUE, SUM]].sum().reset_index().sort_values(
+            MONTH)
         filtered_procurement_df = filtered_procurement_df.groupby(MONTH)[[SUM]].sum().reset_index().sort_values(MONTH)
 
         filtered_sales_df[MONTH] = filtered_sales_df[MONTH].astype(str)
@@ -324,45 +341,44 @@ def register_sales_and_revenue_callbacks(app):
         }
         return data
 
-    @app.callback(
-        Output("dying-products-graph", "figure"),
-        Input("dying-products-data", "data")
-    )
-    def update_graph(data):
-        dead_products_with_inventory_and_procurement = pd.read_json(
-            data["dead_products_with_inventory_and_procurement"])
-        dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
-                                                                                 ascending=False)[:10]
-        dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
-                                           value_vars=[TOTAL_ORDERS_THIS_YEAR, INVENTORY_QUANTITY,
-                                                       QUANTITY_PROCUREMENT],
-                                           var_name='Feature', value_name='Value')
-
-        fig = px.bar(dead_products, x=PRODUCT_NAME, y='Value', color='Feature', barmode='group',
-                     title='מוצרים מתים (פחות מ 5 הזמנות מלקוחות בשנה האחרונה)')
-        fig.update_layout(xaxis_title='מוצר', yaxis_title='כמות', template='plotly_dark')
-        return fig
-
-    @app.callback(
-        Output("download-excel", "data"),
-        Input("download-button", "n_clicks"),
-        Input("dying-products-data", "data"),
-        prevent_initial_call=True
-    )
-    def download_excel(n_clicks, data):
-        # Retrieve stored data from dcc.Store
-        # data = callback_context.triggered[0]["prop_id"].split(".")[0]
-        dead_products_with_inventory_and_procurement = pd.read_json(
-            data["dead_products_with_inventory_and_procurement"])
-        dead_products_stats = pd.read_json(data["dead_products_stats"])
-
-        # Create Excel file
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            dead_products_with_inventory_and_procurement.to_excel(writer, sheet_name='מוצרים מתים שהוזמנו והם במלאי',
-                                                                  index=False)
-            dead_products_stats.to_excel(writer, sheet_name="כל המוצרים המתים", index=False)
-        buffer.seek(0)
-
-        return dcc.send_bytes(buffer.getvalue(), filename="מוצרים מתים.xlsx")
-
+    # @app.callback(
+    #     Output("dying-products-graph", "figure"),
+    #     Input("dying-products-data", "data")
+    # )
+    # def update_graph(data):
+    #     dead_products_with_inventory_and_procurement = pd.read_json(
+    #         data["dead_products_with_inventory_and_procurement"])
+    #     dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
+    #                                                                              ascending=False)[:10]
+    #     dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
+    #                                        value_vars=[TOTAL_ORDERS_THIS_YEAR, INVENTORY_QUANTITY,
+    #                                                    QUANTITY_PROCUREMENT],
+    #                                        var_name='Feature', value_name='Value')
+    #
+    #     fig = px.bar(dead_products, x=PRODUCT_NAME, y='Value', color='Feature', barmode='group',
+    #                  title='מוצרים מתים (פחות מ 5 הזמנות מלקוחות בשנה האחרונה)')
+    #     fig.update_layout(xaxis_title='מוצר', yaxis_title='כמות', template='plotly_dark')
+    #     return fig
+    #
+    # @app.callback(
+    #     Output("download-excel", "data"),
+    #     Input("download-button", "n_clicks"),
+    #     Input("dying-products-data", "data"),
+    #     prevent_initial_call=True
+    # )
+    # def download_excel(n_clicks, data):
+    #     # Retrieve stored data from dcc.Store
+    #     # data = callback_context.triggered[0]["prop_id"].split(".")[0]
+    #     dead_products_with_inventory_and_procurement = pd.read_json(
+    #         data["dead_products_with_inventory_and_procurement"])
+    #     dead_products_stats = pd.read_json(data["dead_products_stats"])
+    #
+    #     # Create Excel file
+    #     buffer = io.BytesIO()
+    #     with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+    #         dead_products_with_inventory_and_procurement.to_excel(writer, sheet_name='מוצרים מתים שהוזמנו והם במלאי',
+    #                                                               index=False)
+    #         dead_products_stats.to_excel(writer, sheet_name="כל המוצרים המתים", index=False)
+    #     buffer.seek(0)
+    #
+    #     return dcc.send_bytes(buffer.getvalue(), filename="מוצרים מתים.xlsx")

@@ -2,8 +2,9 @@ CUSTOMER_NAME = "שם לקוח"
 CUSTOMER_ID = "מס' לקוח"
 PRODUCT_ID = "מק'ט"
 PRODUCT_NAME = "תאור מוצר"
-MANUFACTURER = 'יצרן'
-SALES_ALL_MONTHS = 'כמות מכירות בכל שלושת החודשים'
+MANUFACTURER = 'מספר יצרן'
+SALES_ALL_MONTHS = 'סה"כ מכירות בשנה האחרונה'
+SALES_6_MONTHS = 'סה"כ מכירות בחצי השנה האחרונה'
 CURRENT_MONTH_SALES = 'נמכר בחודש נוכחי'
 SALES_1_MONTH_BEFORE = 'נמכר בחודש הקודם'
 SALES_2_MONTH_BEFORE = 'נמכר לפני חודשיים'
@@ -17,6 +18,12 @@ DATE = "תאריך"
 ORDER_DATE = "תאריך ההזמנה"
 QUANTITY = "כמות"
 INVENTORY_QUANTITY = "כמות במלאי"
+INVENTORY = 'מלאי זמין'
+PROCUREMENT_ORDERS = 'הזמנות רכש '
+ORDERS_LEFT_TO_SUPPLY = 'הזמנות לקוח שלא סופקו ב3 חודשים אחרונים'
+ON_THE_WAY = 'עומד לבוא'
+ON_THE_WAY_STATUS = 'סטטוס שורת הזמנת רכש'
+ORDER_STATUS = 'סטטוס הזמנה'
 ALL = 'all'
 YEAR_MONTH = 'year_month'
 TOTAL_ORDERS_THIS_YEAR = 'סה"כ_הזמנות_בשנה_האחרונה'
@@ -28,6 +35,8 @@ DROP_DOWN_STYLE = {
     # 'border': '1px solid #555',
     # 'borderRadius': '4px'
 }
+
+
 PROCUREMENT_ID = 'חשבונית'
 STYLE_DATA = {"backgroundColor": "rgb(50, 50, 50)", "color": "white"}
 STYLE_TABLE = {"overflowX": "auto", "maxWidth": "100%", "tableLayout": "fixed"}
