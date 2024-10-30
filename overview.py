@@ -14,7 +14,8 @@ from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL
     AGENT_NAME, PRODUCT_ID, MONTH, TOTAL_ORDERS_THIS_YEAR, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
     QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
-    PROCUREMENT_ORDERS, DAMAGED_INVENTORY
+    PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_1_MONTH_BEFORE, \
+    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE
 from globals import bills_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
 
 
@@ -229,7 +230,8 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
 
     on_the_way_orders = procurement_df[
         (procurement_df[ON_THE_WAY_STATUS] == 'עומד לבוא') & (procurement_df[ORDER_STATUS] != 'סגורה')]
-    on_the_way_orders = on_the_way_orders.groupby(PRODUCT_ID)[QUANTITY].sum().reset_index().rename({QUANTITY: ON_THE_WAY}, axis=1)
+    on_the_way_orders = on_the_way_orders.groupby(PRODUCT_ID)[QUANTITY].sum().reset_index().rename(
+        {QUANTITY: ON_THE_WAY}, axis=1)
 
     updated_products_data = pd.merge(uploaded_products_df,
                                      sales_quantities_df[[SALES_ALL_MONTHS, SALES_6_MONTHS, PRODUCT_ID]], on=PRODUCT_ID,
@@ -241,11 +243,12 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
-    updated_products_data[INVENTORY] = updated_products_data[INVENTORY] - updated_products_data[DAMAGED_INVENTORY].fillna(0)
+    updated_products_data[INVENTORY] = updated_products_data[INVENTORY] - updated_products_data[
+        DAMAGED_INVENTORY].fillna(0)
 
-    columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY, SALES_ALL_MONTHS, SALES_6_MONTHS] + \
-              list(uploaded_products_df.columns[5:9]) + [
-        ORDERS_LEFT_TO_SUPPLY] + list(uploaded_products_df.columns[9:]) + [DAMAGED_INVENTORY]
+    columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY, SALES_ALL_MONTHS,
+               SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE,
+               DAMAGED_INVENTORY]
     return updated_products_data[columns]
 
 
@@ -335,7 +338,6 @@ def register_sales_and_revenue_callbacks(app):
 
         return "הקובץ הועלה בהצלחה! הורדנו למחשב את הקובץ המעודכן", dcc.send_bytes(final_output.getvalue(),
                                                                                    "updated_" + filename)
-
 
     @app.callback(
         Output("dying-products-data", "data"),
