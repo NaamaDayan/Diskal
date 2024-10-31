@@ -3,7 +3,8 @@ from datetime import datetime
 import pandas as pd
 
 from constants import TOTAL_REVENUE, CUSTOMER_NAME, SUM, DATE, ORDER_DATE, MONTH, YEAR, PRODUCT_ID, \
-    TOTAL_ORDERS_THIS_YEAR, YEAR_MONTH, SALES_ALL_MONTHS, SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY
+    TOTAL_ORDERS_THIS_YEAR, YEAR_MONTH, SALES_ALL_MONTHS, SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, QUANTITY, \
+    ORDERS_REMAINING
 
 
 # stats_df = pd.read_excel('data/זמינות מוצרים.xlsx')
@@ -14,8 +15,7 @@ from constants import TOTAL_REVENUE, CUSTOMER_NAME, SUM, DATE, ORDER_DATE, MONTH
 
 
 def get_product_sold_quantities_over_months():
-    grouped_df = bills_df.groupby([MONTH, YEAR, PRODUCT_ID]).agg(
-        {'כמות בהזמנה': 'sum', 'יתרה בהזמנה': 'sum', '% רווח למחיר + סיכום': 'sum'}).reset_index()
+    grouped_df = orders_df.groupby([MONTH, YEAR, PRODUCT_ID]).sum().reset_index()
 
     current_date = datetime.now()
     end_date = pd.Timestamp(current_date.year, current_date.month, 1)
@@ -29,16 +29,16 @@ def get_product_sold_quantities_over_months():
     merged_df = pd.merge(full_range_df, grouped_df, on=[YEAR, MONTH, PRODUCT_ID], how='left').fillna(0)
     merged_df['year_month_orders'] = ' כמות בהזמנה ' + merged_df[YEAR].astype(str) + '-' + merged_df[MONTH].astype(
         str).str.zfill(2)
-    orders_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_orders'], values='כמות בהזמנה',
+    orders_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_orders'], values=QUANTITY,
                                               fill_value=0)
 
-    orders_left_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_orders'], values='יתרה בהזמנה',
+    orders_left_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_orders'], values=ORDERS_REMAINING,
                                               fill_value=0)
     orders_quantities[TOTAL_ORDERS_THIS_YEAR] = orders_quantities.sum(axis=1)
 
     merged_df['year_month_sales'] = ' נמכר ' + merged_df[YEAR].astype(str) + '-' + merged_df[MONTH].astype(
         str).str.zfill(2)
-    merged_df['נמכר'] = merged_df['כמות בהזמנה'] - merged_df['יתרה בהזמנה']
+    merged_df['נמכר'] = merged_df[QUANTITY] - merged_df[ORDERS_REMAINING]
     sales_quantities = merged_df.pivot_table(index=PRODUCT_ID, columns=['year_month_sales'], values='נמכר',
                                              fill_value=0)
 
@@ -47,23 +47,23 @@ def get_product_sold_quantities_over_months():
     sales_quantities[SALES_ALL_MONTHS] = sales_all_months
     sales_quantities[SALES_6_MONTHS] = sales_6_months
     orders_left_quantities[ORDERS_LEFT_TO_SUPPLY] = orders_left_quantities[sorted(orders_left_quantities.columns)[-3:]].sum(axis=1)
-    revenue_ratio_df = merged_df.groupby(PRODUCT_ID)['% רווח למחיר + סיכום'].mean().reset_index().rename(
-        {'% רווח למחיר + סיכום': 'אחוז רווח ביחס למחיר (ממוצע השנה)'}, axis=1)
+    # revenue_ratio_df = merged_df.groupby(PRODUCT_ID)['% רווח למחיר + סיכום'].mean().reset_index().rename(
+    #     {'% רווח למחיר + סיכום': 'אחוז רווח ביחס למחיר (ממוצע השנה)'}, axis=1)
 
-    return orders_quantities.reset_index(), sales_quantities.reset_index(), orders_left_quantities.reset_index(), revenue_ratio_df
+    return orders_quantities.reset_index(), sales_quantities.reset_index(), orders_left_quantities.reset_index()
 
 
-bills_df = pd.read_csv('data/נעמה חשבוניות.csv')
-bills_df[TOTAL_REVENUE] = pd.to_numeric(bills_df[TOTAL_REVENUE], errors='coerce')
-bills_df[SUM] = pd.to_numeric(bills_df[SUM], errors='coerce')
-bills_df = bills_df.rename({DATE: 'old_date'}, axis=1)
-bills_df[DATE] = pd.to_datetime(bills_df['old_date'], format='%Y-%d-%m', errors='coerce')
-bills_df[DATE] = bills_df[DATE].fillna(pd.to_datetime(bills_df['old_date'], format='%d/%m/%Y', errors='coerce'))
-bills_df[MONTH] = bills_df[DATE].dt.month
-bills_df[YEAR] = bills_df[DATE].dt.year
-bills_df = bills_df[bills_df[TOTAL_REVENUE] > 0]
-bills_df = bills_df[bills_df[SUM] > 0]
-bills_df = bills_df[bills_df[CUSTOMER_NAME] != 'בדיקות']
+# bills_df = pd.read_csv('data/נעמה מכירות.csv')
+# bills_df[TOTAL_REVENUE] = pd.to_numeric(bills_df[TOTAL_REVENUE], errors='coerce')
+# bills_df[SUM] = pd.to_numeric(bills_df[SUM], errors='coerce')
+# bills_df = bills_df.rename({DATE: 'old_date'}, axis=1)
+# bills_df[DATE] = pd.to_datetime(bills_df['old_date'], format='%Y-%d-%m', errors='coerce')
+# bills_df[DATE] = bills_df[DATE].fillna(pd.to_datetime(bills_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+# bills_df[MONTH] = bills_df[DATE].dt.month
+# bills_df[YEAR] = bills_df[DATE].dt.year
+# bills_df = bills_df[bills_df[TOTAL_REVENUE] > 0]
+# bills_df = bills_df[bills_df[SUM] > 0]
+# bills_df = bills_df[bills_df[CUSTOMER_NAME] != 'בדיקות']
 
 orders_df = pd.read_csv('data/נעמה הזמנות.csv')
 orders_df[TOTAL_REVENUE] = pd.to_numeric(orders_df[TOTAL_REVENUE], errors='coerce')
@@ -71,6 +71,7 @@ orders_df[SUM] = pd.to_numeric(orders_df[SUM], errors='coerce')
 orders_df = orders_df[orders_df[CUSTOMER_NAME] != 'בדיקות']
 orders_df[ORDER_DATE] = pd.to_datetime(orders_df[ORDER_DATE])
 orders_df[MONTH] = orders_df[ORDER_DATE].dt.month
+orders_df[YEAR] = orders_df[ORDER_DATE].dt.year
 
 procurement_df = pd.read_csv('data/נעמה הזמנות רכש.csv')
 procurement_df[ORDER_DATE] = pd.to_datetime(procurement_df[ORDER_DATE], format='%d/%m/%Y')
@@ -83,4 +84,4 @@ procurement_df[YEAR_MONTH] = procurement_df[YEAR].astype(str) + '-' + procuremen
 procurement_df[SUM] = pd.to_numeric(procurement_df[SUM], errors='coerce')
 
 inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
-orders_quantities_df, sales_quantities_df, orders_left_df, revenue_ratio_df = get_product_sold_quantities_over_months()
+orders_quantities_df, sales_quantities_df, orders_left_df = get_product_sold_quantities_over_months()

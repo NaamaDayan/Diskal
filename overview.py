@@ -16,7 +16,7 @@ from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
     PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_1_MONTH_BEFORE, \
     SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE
-from globals import bills_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
+from globals import orders_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
 
 
 def parse_contents(contents, filename):
@@ -71,7 +71,7 @@ def get_overview_view():
                     html.Label("בחר לקוח", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='customer-dropdown',
-                        options=[{'label': cust, 'value': cust} for cust in bills_df[CUSTOMER_NAME].unique()] + [
+                        options=[{'label': cust, 'value': cust} for cust in orders_df[CUSTOMER_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -81,7 +81,7 @@ def get_overview_view():
                     html.Label("בחר מוצר", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='product-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in bills_df[PRODUCT_NAME].unique()] + [
+                        options=[{'label': prod, 'value': prod} for prod in orders_df[PRODUCT_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -91,7 +91,7 @@ def get_overview_view():
                     html.Label("בחר סוכן", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='agent-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in bills_df[AGENT_NAME].unique()] + [
+                        options=[{'label': prod, 'value': prod} for prod in orders_df[AGENT_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -160,8 +160,8 @@ def get_dying_products_view():
 
 
 def get_best_customers():
-    popular_customers = bills_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:10].index
-    new_df = bills_df.copy()
+    popular_customers = orders_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:10].index
+    new_df = orders_df.copy()
     new_df[CUSTOMER_NAME] = new_df[CUSTOMER_NAME].apply(lambda x: x if x in popular_customers else 'other')
     revenues_by_customer = new_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().reset_index()
     customers_pie_chart = px.pie(revenues_by_customer,
@@ -174,8 +174,8 @@ def get_best_customers():
 
 
 def get_best_products():
-    popular_products = bills_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
-    revenues_by_product = bills_df[bills_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
+    popular_products = orders_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_product = orders_df[orders_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
         TOTAL_REVENUE].sum().reset_index()
     products_pie_chart = px.pie(revenues_by_product,
                                 values=TOTAL_REVENUE,
@@ -187,13 +187,13 @@ def get_best_products():
 
 
 def get_top_k_products_table():
-    n_products = bills_df[PRODUCT_NAME].nunique()
-    popular_products = bills_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(
+    n_products = orders_df[PRODUCT_NAME].nunique()
+    popular_products = orders_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(
         ascending=False).reset_index()[: int(0.2 * n_products)][PRODUCT_NAME].values
-    popular_products_df = bills_df[bills_df[PRODUCT_NAME].isin(popular_products)][
+    popular_products_df = orders_df[orders_df[PRODUCT_NAME].isin(popular_products)][
         [PRODUCT_ID, PRODUCT_NAME, TOTAL_REVENUE]].sort_values(TOTAL_REVENUE,
                                                                ascending=False)
-    revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / bills_df[TOTAL_REVENUE].sum()
+    revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / orders_df[TOTAL_REVENUE].sum()
     popular_products_df = popular_products_df[[PRODUCT_NAME]].drop_duplicates()
     return html.Div([html.Label(f" 20 אחוז מהמוצרים שמכניסים 70 אחוז מהרווח", style={'color': 'white'}),
                      dash_table.DataTable(
@@ -211,8 +211,8 @@ def get_top_k_products_table():
 
 
 def get_best_agents():
-    popular_agents = bills_df.groupby(AGENT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
-    revenues_by_agent = bills_df[bills_df[AGENT_NAME].isin(popular_agents)].groupby(AGENT_NAME)[
+    popular_agents = orders_df.groupby(AGENT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_agent = orders_df[orders_df[AGENT_NAME].isin(popular_agents)].groupby(AGENT_NAME)[
         TOTAL_REVENUE].sum().reset_index()
     agents_pie_chart = px.pie(revenues_by_agent,
                               values=TOTAL_REVENUE,
@@ -260,7 +260,7 @@ def register_sales_and_revenue_callbacks(app):
          Input('product-dropdown', 'value')]
     )
     def update_graph(selected_customer, selected_agent, selected_product):
-        filtered_sales_df = bills_df
+        filtered_sales_df = orders_df
         filtered_procurement_df = procurement_df
         if selected_product != ALL:
             filtered_sales_df = filtered_sales_df[filtered_sales_df[PRODUCT_NAME] == selected_product]

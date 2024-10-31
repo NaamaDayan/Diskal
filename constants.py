@@ -12,6 +12,7 @@ SALES_3_MONTH_BEFORE = 'נמכר לפני 3 חודשים'
 SUM = "סכום (שח)"
 TOTAL_REVENUE = "רווח (שח)"
 AGENT_NAME = 'שם סוכן'
+ORDERS_REMAINING = 'יתרה לאספקה'
 MONTH = 'month'
 YEAR = 'year'
 DATE = "תאריך"
