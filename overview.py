@@ -11,12 +11,13 @@ from dash.dependencies import Input, Output, State
 from openpyxl import load_workbook
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
-    AGENT_NAME, PRODUCT_ID, MONTH, TOTAL_ORDERS_THIS_YEAR, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
+    AGENT_NAME, PRODUCT_ID, MONTH, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
     QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
     PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_1_MONTH_BEFORE, \
-    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE
-from globals import orders_df, inventory_df, orders_quantities_df, sales_quantities_df, procurement_df, orders_left_df
+    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, INQIRIES_INVENTORY, \
+    PARTRIDE_INVENTORY, HAKOL_PO_INVENTORY, MAIN_INVENTORY
+from globals import sales_df, inventory_df, sales_quantities_df, procurement_df, orders_left_quantities
 
 
 def parse_contents(contents, filename):
@@ -71,7 +72,7 @@ def get_overview_view():
                     html.Label("בחר לקוח", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='customer-dropdown',
-                        options=[{'label': cust, 'value': cust} for cust in orders_df[CUSTOMER_NAME].unique()] + [
+                        options=[{'label': cust, 'value': cust} for cust in sales_df[CUSTOMER_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -81,7 +82,7 @@ def get_overview_view():
                     html.Label("בחר מוצר", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='product-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in orders_df[PRODUCT_NAME].unique()] + [
+                        options=[{'label': prod, 'value': prod} for prod in sales_df[PRODUCT_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -91,7 +92,7 @@ def get_overview_view():
                     html.Label("בחר סוכן", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='agent-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in orders_df[AGENT_NAME].unique()] + [
+                        options=[{'label': prod, 'value': prod} for prod in sales_df[AGENT_NAME].unique()] + [
                             {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
@@ -119,10 +120,10 @@ def get_overview_view():
 
 
 def get_dying_products_by_n_orders(n_orders_last_year: int):
-    dead_products = orders_quantities_df[orders_quantities_df[TOTAL_ORDERS_THIS_YEAR] <= n_orders_last_year][
+    dead_products = sales_quantities_df[sales_quantities_df[SALES_ALL_MONTHS] <= n_orders_last_year][
         PRODUCT_ID].unique()
-    dead_products_stats = orders_quantities_df[orders_quantities_df[PRODUCT_ID].isin(dead_products)][
-        [PRODUCT_ID, TOTAL_ORDERS_THIS_YEAR]]
+    dead_products_stats = sales_quantities_df[sales_quantities_df[PRODUCT_ID].isin(dead_products)][
+        [PRODUCT_ID, SALES_ALL_MONTHS]]
 
     products_inventory = inventory_df[[PRODUCT_ID, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY}, axis=1)
 
@@ -160,8 +161,8 @@ def get_dying_products_view():
 
 
 def get_best_customers():
-    popular_customers = orders_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:10].index
-    new_df = orders_df.copy()
+    popular_customers = sales_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:10].index
+    new_df = sales_df.copy()
     new_df[CUSTOMER_NAME] = new_df[CUSTOMER_NAME].apply(lambda x: x if x in popular_customers else 'other')
     revenues_by_customer = new_df.groupby(CUSTOMER_NAME)[TOTAL_REVENUE].sum().reset_index()
     customers_pie_chart = px.pie(revenues_by_customer,
@@ -174,8 +175,8 @@ def get_best_customers():
 
 
 def get_best_products():
-    popular_products = orders_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
-    revenues_by_product = orders_df[orders_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
+    popular_products = sales_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_product = sales_df[sales_df[PRODUCT_NAME].isin(popular_products)].groupby(PRODUCT_NAME)[
         TOTAL_REVENUE].sum().reset_index()
     products_pie_chart = px.pie(revenues_by_product,
                                 values=TOTAL_REVENUE,
@@ -187,13 +188,13 @@ def get_best_products():
 
 
 def get_top_k_products_table():
-    n_products = orders_df[PRODUCT_NAME].nunique()
-    popular_products = orders_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(
+    n_products = sales_df[PRODUCT_NAME].nunique()
+    popular_products = sales_df.groupby(PRODUCT_NAME)[TOTAL_REVENUE].sum().sort_values(
         ascending=False).reset_index()[: int(0.2 * n_products)][PRODUCT_NAME].values
-    popular_products_df = orders_df[orders_df[PRODUCT_NAME].isin(popular_products)][
+    popular_products_df = sales_df[sales_df[PRODUCT_NAME].isin(popular_products)][
         [PRODUCT_ID, PRODUCT_NAME, TOTAL_REVENUE]].sort_values(TOTAL_REVENUE,
                                                                ascending=False)
-    revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / orders_df[TOTAL_REVENUE].sum()
+    revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / sales_df[TOTAL_REVENUE].sum()
     popular_products_df = popular_products_df[[PRODUCT_NAME]].drop_duplicates()
     return html.Div([html.Label(f" 20 אחוז מהמוצרים שמכניסים 70 אחוז מהרווח", style={'color': 'white'}),
                      dash_table.DataTable(
@@ -211,8 +212,8 @@ def get_top_k_products_table():
 
 
 def get_best_agents():
-    popular_agents = orders_df.groupby(AGENT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
-    revenues_by_agent = orders_df[orders_df[AGENT_NAME].isin(popular_agents)].groupby(AGENT_NAME)[
+    popular_agents = sales_df.groupby(AGENT_NAME)[TOTAL_REVENUE].sum().sort_values(ascending=False)[:15].index
+    revenues_by_agent = sales_df[sales_df[AGENT_NAME].isin(popular_agents)].groupby(AGENT_NAME)[
         TOTAL_REVENUE].sum().reset_index()
     agents_pie_chart = px.pie(revenues_by_agent,
                               values=TOTAL_REVENUE,
@@ -224,9 +225,8 @@ def get_best_agents():
 
 
 def get_updated_products_data(uploaded_products_df: pd.DataFrame):
-    damaged_quantity_df = \
-        inventory_df.pivot_table(index=PRODUCT_ID, columns=['תאור מחסן'], values='כמות', fill_value=0)[
-            [DAMAGED_INVENTORY]].reset_index()
+    inventory_by_warehouse = \
+        inventory_df.pivot_table(index=PRODUCT_ID, columns=['תאור מחסן'], values='כמות', fill_value=0).reset_index()
 
     on_the_way_orders = procurement_df[
         (procurement_df[ON_THE_WAY_STATUS] == 'עומד לבוא') & (procurement_df[ORDER_STATUS] != 'סגורה')]
@@ -234,20 +234,21 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
         {QUANTITY: ON_THE_WAY}, axis=1)
 
     updated_products_data = pd.merge(uploaded_products_df,
-                                     sales_quantities_df[[SALES_ALL_MONTHS, SALES_6_MONTHS, PRODUCT_ID]], on=PRODUCT_ID,
+                                     sales_quantities_df, on=PRODUCT_ID,
                                      how='left')
-    updated_products_data = pd.merge(updated_products_data, orders_left_df[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
+    updated_products_data = pd.merge(updated_products_data, orders_left_quantities[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
                                      on=PRODUCT_ID, how='left')
 
-    updated_products_data = pd.merge(updated_products_data, damaged_quantity_df, on=PRODUCT_ID, how='left')
+    updated_products_data = pd.merge(updated_products_data, inventory_by_warehouse, on=PRODUCT_ID, how='left')
     # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
-    updated_products_data[INVENTORY] = updated_products_data[INVENTORY] - updated_products_data[
-        DAMAGED_INVENTORY].fillna(0)
+    updated_products_data['מלאי זמין חדש'] = inventory_by_warehouse[
+        [INQIRIES_INVENTORY, HAKOL_PO_INVENTORY, PARTRIDE_INVENTORY, MAIN_INVENTORY]].sum(axis=1)
 
-    columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, STATUS, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY, SALES_ALL_MONTHS,
-               SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE,
+    columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, STATUS, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY,
+               SALES_ALL_MONTHS,
+               SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, ORDERS_LEFT_TO_SUPPLY,
                LAST_PRICE, DAMAGED_INVENTORY]
     return updated_products_data[columns]
 
@@ -260,7 +261,7 @@ def register_sales_and_revenue_callbacks(app):
          Input('product-dropdown', 'value')]
     )
     def update_graph(selected_customer, selected_agent, selected_product):
-        filtered_sales_df = orders_df
+        filtered_sales_df = sales_df
         filtered_procurement_df = procurement_df
         if selected_product != ALL:
             filtered_sales_df = filtered_sales_df[filtered_sales_df[PRODUCT_NAME] == selected_product]

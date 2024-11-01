@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 
 from constants import PRODUCT_NAME, TOTAL_REVENUE, SUM, \
     QUANTITY, MONTH
-from globals import orders_df, procurement_df, orders_df
+from globals import sales_df, procurement_df, sales_df
 
 
 def get_product_view():
@@ -18,9 +18,9 @@ def get_product_view():
                     html.Label("בחר מוצר", style={'color': 'white'}),
                     dcc.Dropdown(
                         id='product-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in orders_df[PRODUCT_NAME].unique()],
+                        options=[{'label': prod, 'value': prod} for prod in sales_df[PRODUCT_NAME].unique()],
                         multi=False,
-                        value=orders_df[PRODUCT_NAME].unique()[0],
+                        value=sales_df[PRODUCT_NAME].unique()[0],
                     )], width=6),
             ]),
             dbc.Row([
@@ -39,12 +39,12 @@ def register_product_callbacks(app):
         [Input('product-dropdown', 'value')]
     )
     def update_graph(selected_product):
-        sales_over_time = orders_df[(orders_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
+        sales_over_time = sales_df[(sales_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
             [TOTAL_REVENUE, SUM, QUANTITY]].sum().reset_index()
         sales_over_time = sales_over_time.sort_values(MONTH)
         sales_over_time[MONTH] = sales_over_time[MONTH].astype(str)
 
-        orders_over_time = orders_df[(orders_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
+        orders_over_time = sales_df[(sales_df[PRODUCT_NAME] == selected_product)].groupby(MONTH)[
             [TOTAL_REVENUE, SUM, QUANTITY]].sum().reset_index()
         orders_over_time = orders_over_time.sort_values(MONTH)
         orders_over_time[MONTH] = orders_over_time[MONTH].astype(str)
