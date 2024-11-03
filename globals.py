@@ -56,6 +56,7 @@ orders_df[SUM] = pd.to_numeric(orders_df[SUM], errors='coerce')
 orders_df[ORDER_DATE] = pd.to_datetime(orders_df[ORDER_DATE])
 orders_df[MONTH] = orders_df[ORDER_DATE].dt.month
 orders_df[YEAR] = orders_df[ORDER_DATE].dt.year
+orders_df = orders_df[orders_df['סטטוס הזמנה'] != 'טיוטא']
 
 procurement_df = pd.read_csv('data/נעמה הזמנות רכש.csv')
 procurement_df[ORDER_DATE] = pd.to_datetime(procurement_df[ORDER_DATE], format='%d/%m/%Y')

@@ -243,13 +243,11 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
-    updated_products_data['מלאי זמין חדש'] = inventory_by_warehouse[
-        [INQIRIES_INVENTORY, HAKOL_PO_INVENTORY, PARTRIDE_INVENTORY, MAIN_INVENTORY]].sum(axis=1)
+    updated_products_data[INVENTORY] = inventory_by_warehouse[MAIN_INVENTORY]
 
     columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, STATUS, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY,
                SALES_ALL_MONTHS,
                SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE,
-               ORDERS_LEFT_TO_SUPPLY,
                LAST_PRICE, DAMAGED_INVENTORY]
     return updated_products_data[columns]
 
