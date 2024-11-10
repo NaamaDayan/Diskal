@@ -112,9 +112,9 @@ def get_overview_view():
                 dbc.Col(dbc.Card(dbc.CardBody(get_best_agents())), width=6),
             ], justify='center'),
             html.Br(),
-            # dbc.Row([
-            #     dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
-            # ], justify='center'),
+            dbc.Row([
+                dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
+            ], justify='center'),
             html.Br()
         ]))
 
@@ -243,7 +243,7 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     # updated_products_data = pd.merge(updated_products_data, revenue_ratio_df, on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
-    updated_products_data[INVENTORY] = inventory_by_warehouse[MAIN_INVENTORY]
+    updated_products_data[INVENTORY] = updated_products_data[MAIN_INVENTORY]
 
     columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, STATUS, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY,
                SALES_ALL_MONTHS,
@@ -293,7 +293,7 @@ def register_sales_and_revenue_callbacks(app):
         fig.add_trace(go.Bar(
             x=filtered_procurement_df[MONTH],
             y=filtered_procurement_df[SUM],
-            name='הוצאות (שח)',
+            name='תשלום לספק (שח)',
             marker_color='red'
         ))
 
@@ -354,44 +354,45 @@ def register_sales_and_revenue_callbacks(app):
         }
         return data
 
-    # @app.callback(
-    #     Output("dying-products-graph", "figure"),
-    #     Input("dying-products-data", "data")
-    # )
-    # def update_graph(data):
-    #     dead_products_with_inventory_and_procurement = pd.read_json(
-    #         data["dead_products_with_inventory_and_procurement"])
-    #     dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
-    #                                                                              ascending=False)[:10]
-    #     dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
-    #                                        value_vars=[TOTAL_ORDERS_THIS_YEAR, INVENTORY_QUANTITY,
-    #                                                    QUANTITY_PROCUREMENT],
-    #                                        var_name='Feature', value_name='Value')
-    #
-    #     fig = px.bar(dead_products, x=PRODUCT_NAME, y='Value', color='Feature', barmode='group',
-    #                  title='מוצרים מתים (פחות מ 5 הזמנות מלקוחות בשנה האחרונה)')
-    #     fig.update_layout(xaxis_title='מוצר', yaxis_title='כמות', template='plotly_dark')
-    #     return fig
-    #
-    # @app.callback(
-    #     Output("download-excel", "data"),
-    #     Input("download-button", "n_clicks"),
-    #     Input("dying-products-data", "data"),
-    #     prevent_initial_call=True
-    # )
-    # def download_excel(n_clicks, data):
-    #     # Retrieve stored data from dcc.Store
-    #     # data = callback_context.triggered[0]["prop_id"].split(".")[0]
-    #     dead_products_with_inventory_and_procurement = pd.read_json(
-    #         data["dead_products_with_inventory_and_procurement"])
-    #     dead_products_stats = pd.read_json(data["dead_products_stats"])
-    #
-    #     # Create Excel file
-    #     buffer = io.BytesIO()
-    #     with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-    #         dead_products_with_inventory_and_procurement.to_excel(writer, sheet_name='מוצרים מתים שהוזמנו והם במלאי',
-    #                                                               index=False)
-    #         dead_products_stats.to_excel(writer, sheet_name="כל המוצרים המתים", index=False)
-    #     buffer.seek(0)
-    #
-    #     return dcc.send_bytes(buffer.getvalue(), filename="מוצרים מתים.xlsx")
+    @app.callback(
+        Output("dying-products-graph", "figure"),
+        Input("dying-products-data", "data")
+    )
+    def update_graph(data):
+        dead_products_with_inventory_and_procurement = pd.read_json(
+            data["dead_products_with_inventory_and_procurement"])
+        dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
+                                                                                 ascending=False)[:10]
+        dead_products = dead_products.rename({QUANTITY_PROCUREMENT: 'כמות הזמנות ספק פתוחות'}, axis=1)
+        dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
+                                           value_vars=[SALES_ALL_MONTHS, INVENTORY_QUANTITY,
+                                                       'כמות הזמנות ספק פתוחות'],
+                                           var_name='Feature', value_name='Value')
+
+        fig = px.bar(dead_products, x=PRODUCT_NAME, y='Value', color='Feature', barmode='group',
+                     title='מוצרים מתים (פחות מ 5 הזמנות מלקוחות בשנה האחרונה)')
+        fig.update_layout(xaxis_title='מוצר', yaxis_title='כמות', template='plotly_dark')
+        return fig
+
+    @app.callback(
+        Output("download-excel", "data"),
+        Input("download-button", "n_clicks"),
+        Input("dying-products-data", "data"),
+        prevent_initial_call=True
+    )
+    def download_excel(n_clicks, data):
+        # Retrieve stored data from dcc.Store
+        # data = callback_context.triggered[0]["prop_id"].split(".")[0]
+        dead_products_with_inventory_and_procurement = pd.read_json(
+            data["dead_products_with_inventory_and_procurement"])
+        dead_products_stats = pd.read_json(data["dead_products_stats"])
+
+        # Create Excel file
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            dead_products_with_inventory_and_procurement.to_excel(writer, sheet_name='מוצרים מתים שהוזמנו והם במלאי',
+                                                                  index=False)
+            dead_products_stats.to_excel(writer, sheet_name="כל המוצרים המתים", index=False)
+        buffer.seek(0)
+
+        return dcc.send_bytes(buffer.getvalue(), filename="מוצרים מתים.xlsx")
