@@ -9,6 +9,7 @@ CURRENT_MONTH_SALES = 'נמכר בחודש נוכחי'
 SALES_1_MONTH_BEFORE = 'נמכר בחודש הקודם'
 SALES_2_MONTH_BEFORE = 'נמכר לפני חודשיים'
 SALES_3_MONTH_BEFORE = 'נמכר לפני 3 חודשים'
+TOTAL_SALES_2_YEARS = 'סה"כ מכירות בשנתיים האחרונות'
 SUM = "סכום (שח)"
 TOTAL_REVENUE = "רווח (שח)"
 AGENT_NAME = 'שם סוכן'

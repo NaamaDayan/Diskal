@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 
 from constants import PRODUCT_NAME, TOTAL_REVENUE, SUM, \
     QUANTITY, MONTH
-from globals import sales_df, procurement_df, sales_df
+from globals import procurement_bills_df, sales_df
 
 
 def get_product_view():
@@ -49,7 +49,8 @@ def register_product_callbacks(app):
         orders_over_time = orders_over_time.sort_values(MONTH)
         orders_over_time[MONTH] = orders_over_time[MONTH].astype(str)
 
-        procurement_over_time = procurement_df[procurement_df[PRODUCT_NAME] == selected_product].groupby(MONTH)[[
+        procurement_over_time = \
+        procurement_bills_df[procurement_bills_df[PRODUCT_NAME] == selected_product].groupby(MONTH)[[
             SUM, QUANTITY]].sum().reset_index()
         procurement_over_time = procurement_over_time.sort_values(MONTH)
         procurement_over_time[MONTH] = procurement_over_time[MONTH].astype(str)

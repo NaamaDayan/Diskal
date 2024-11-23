@@ -49,6 +49,15 @@ sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], form
 sales_df[MONTH] = sales_df[DATE].dt.month
 sales_df[YEAR] = sales_df[DATE].dt.year
 
+bills_df = pd.read_csv('data/נעמה חשבוניות.csv')
+bills_df[TOTAL_REVENUE] = pd.to_numeric(bills_df[TOTAL_REVENUE], errors='coerce')
+bills_df[SUM] = pd.to_numeric(bills_df[SUM], errors='coerce')
+bills_df = bills_df.rename({DATE: 'old_date'}, axis=1)
+bills_df[DATE] = pd.to_datetime(bills_df['old_date'], format='%Y-%d-%m', errors='coerce')
+bills_df[DATE] = bills_df[DATE].fillna(pd.to_datetime(bills_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+bills_df[MONTH] = bills_df[DATE].dt.month
+bills_df[YEAR] = bills_df[DATE].dt.year
+
 
 orders_df = pd.read_csv('data/נעמה הזמנות.csv')
 orders_df[TOTAL_REVENUE] = pd.to_numeric(orders_df[TOTAL_REVENUE], errors='coerce')
@@ -67,6 +76,15 @@ procurement_df[YEAR_MONTH] = procurement_df[YEAR].astype(str) + '-' + procuremen
     str).str.zfill(2)
 
 procurement_df[SUM] = pd.to_numeric(procurement_df[SUM], errors='coerce')
+
+procurement_bills_df = pd.read_csv('data/נעמה חשבונית רכש.csv')
+procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
+procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
+procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
+procurement_bills_df[YEAR] = procurement_bills_df[DATE].dt.year
+procurement_bills_df[YEAR_MONTH] = procurement_bills_df[YEAR].astype(str) + '-' + procurement_bills_df[MONTH].astype(
+    str).str.zfill(2)
+
 
 inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
 
