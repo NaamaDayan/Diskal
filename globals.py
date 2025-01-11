@@ -44,7 +44,7 @@ def pre_process_sales_df(sales_df: pd.DataFrame):
         sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
         sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
     except:
-        recent_procurement_bills_df[DATE] = pd.to_datetime(recent_procurement_bills_df[DATE], format='%d/%m/%y',
+        sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%y',
                                                            errors='coerce')
     sales_df[MONTH] = sales_df[DATE].dt.month
     sales_df[YEAR] = sales_df[DATE].dt.year
@@ -55,7 +55,7 @@ def pre_process_procurement_bills_df(procurement_bills_df: pd.DataFrame):
     try:
         procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
     except:
-        recent_procurement_bills_df[DATE] = pd.to_datetime(recent_procurement_bills_df[DATE], format='%d/%m/%y',
+        procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%y',
                                                            errors='coerce')
     procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
     procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
