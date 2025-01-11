@@ -38,24 +38,9 @@ def authenticate_gmail():
             creds = flow.run_local_server(port=8080, access_type='offline', prompt='consent')
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
+    print ("authentication succeeded")
     return build('gmail', 'v1', credentials=creds)
 
-
-def html_to_dataframe(file_path) -> pd.DataFrame:
-    with open(file_path, 'r', encoding='utf-8') as file:
-        soup = BeautifulSoup(file, 'html.parser')
-    table = soup.find('table', class_='rulesall')
-    headers = [th.text.strip() for th in table.find('thead').find_all('b')]
-
-    rows = []
-    for tr in table.find_all('tr', class_=['FirstDataLine', '']):
-        cols = [td.text.strip() for td in tr.find_all('td')]
-        if cols:
-            rows.append(cols)
-
-    df = pd.DataFrame(rows, columns=headers)
-
-    return df
 
 
 def download_attachments(service, user_id='me',
@@ -82,6 +67,7 @@ def download_attachments(service, user_id='me',
                 ).execute()
 
                 all_dfs.append(_process_html_attachment_to_df(attachment['data']))
+                print ("after append html")
     return pd.concat(all_dfs)
 
 
@@ -89,6 +75,9 @@ def _process_html_attachment_to_df(file_data) -> pd.DataFrame:
     html_content = base64.urlsafe_b64decode(file_data).decode('utf-8')
     soup = BeautifulSoup(html_content, 'html.parser')
     table = soup.find('table', class_='rulesall')
-    return pd.read_html(str(table))[0]
+    print ("before df")
+    df =  pd.read_html(str(table))[0]
+    print ("after df")
+    return df
 
 
