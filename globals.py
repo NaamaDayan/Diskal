@@ -38,16 +38,25 @@ def get_product_quantities_over_months(df: pd.DataFrame, column_prefix: str = ' 
 def pre_process_sales_df(sales_df: pd.DataFrame):
     sales_df[TOTAL_REVENUE] = pd.to_numeric(sales_df[TOTAL_REVENUE], errors='coerce')
     sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
-    sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
-    sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
-    sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+
+    try:
+        sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
+        sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
+        sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+    except:
+        recent_procurement_bills_df[DATE] = pd.to_datetime(recent_procurement_bills_df[DATE], format='%d/%m/%y',
+                                                           errors='coerce')
     sales_df[MONTH] = sales_df[DATE].dt.month
     sales_df[YEAR] = sales_df[DATE].dt.year
     return sales_df
 
 
 def pre_process_procurement_bills_df(procurement_bills_df: pd.DataFrame):
-    procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
+    try:
+        procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
+    except:
+        recent_procurement_bills_df[DATE] = pd.to_datetime(recent_procurement_bills_df[DATE], format='%d/%m/%y',
+                                                           errors='coerce')
     procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
     procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
     procurement_bills_df[YEAR] = procurement_bills_df[DATE].dt.year
@@ -68,7 +77,8 @@ def update_inventory_by_date(recent_inventory_by_date_df: pd.DataFrame):
     inventory_by_date = pd.read_csv('data/inventory_by_date.csv')
     current_month = str(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0))
     if current_month not in inventory_by_date.columns:
-        recent_inventory_by_date_df = recent_inventory_by_date_df.rename({'מק"ט': PRODUCT_ID, 'יתרה': current_month}, axis=1)[
+        recent_inventory_by_date_df = \
+        recent_inventory_by_date_df.rename({'מק"ט': PRODUCT_ID, 'יתרה': current_month}, axis=1)[
             [PRODUCT_ID, current_month]]
         inventory_by_date = pd.merge(inventory_by_date, recent_inventory_by_date_df, on=PRODUCT_ID)
         inventory_by_date.to_csv('data/inventory_by_date.csv', index=False)
@@ -97,7 +107,6 @@ if not was_downloaded_today():
     update_inventory_by_date(recent_inventory_by_date_df)
 
     update_last_download_date()
-
 
 print("already downloaded")
 inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
