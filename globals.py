@@ -40,12 +40,12 @@ def pre_process_sales_df(sales_df: pd.DataFrame):
     sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
 
     try:
+        sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%y')
+    except:
         sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
         sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
         sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
-    except:
-        sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%y',
-                                                           errors='coerce')
+
     sales_df[MONTH] = sales_df[DATE].dt.month
     sales_df[YEAR] = sales_df[DATE].dt.year
     return sales_df
