@@ -2,6 +2,7 @@ CUSTOMER_NAME = "שם לקוח"
 CUSTOMER_ID = "מס' לקוח"
 PRODUCT_ID = "מק'ט"
 PRODUCT_NAME = "תאור מוצר"
+FAMILY_NAME = 'תאור משפחה'
 MANUFACTURER = 'מספר יצרן'
 SALES_ALL_MONTHS = 'סה"כ מכירות בשנה האחרונה'
 SALES_6_MONTHS = 'סה"כ מכירות בחצי השנה האחרונה'
@@ -22,6 +23,13 @@ QUANTITY = "כמות"
 INVENTORY_QUANTITY = "כמות במלאי"
 INVENTORY = 'מלאי זמין'
 PROCUREMENT_ORDERS = 'הזמנות רכש פתוחות'
+
+ORDER_QUANTITY = 'כמות בהזמנה'
+GENERAL_BUYS = 'כמות קניות'
+GENERAL_SALES = 'מכירות כללי'
+EXAMINED_SALES = 'מכירות מבחן'
+OPENING_QUANTITY = 'כמות פתיחה'
+
 ORDERS_LEFT_TO_SUPPLY = 'הזמנות לקוח שלא סופקו ב3 חודשים אחרונים'
 DAMAGED_INVENTORY = 'מחסן פגומים'
 MAIN_INVENTORY = 'מחסן ראשי'

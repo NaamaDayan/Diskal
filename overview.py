@@ -12,13 +12,14 @@ from dash.dependencies import Input, Output, State
 from openpyxl import load_workbook
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
-    AGENT_NAME, PRODUCT_ID, MONTH, STYLE_HEADER, STYLE_DATA, STYLE_TABLE, STYLE_CELL, \
-    QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, SALES_ALL_MONTHS, \
+    AGENT_NAME, PRODUCT_ID, MONTH, QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, \
+    SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
     PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, \
-    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_2_YEARS
+    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_2_YEARS, ORDER_QUANTITY, \
+    GENERAL_SALES, EXAMINED_SALES, GENERAL_BUYS, OPENING_QUANTITY, FAMILY_NAME
 from globals import sales_df, inventory_df, sales_quantities_df, procurement_bills_df, orders_left_quantities, \
-    procurement_df, bills_df
+    procurement_df, bills_df, inventory_by_date_df, products_availability_df, products_family_df
 
 
 def parse_contents(contents, filename):
@@ -69,80 +70,125 @@ def get_last_7_dates():
 
 
 def get_overview_view():
-    return (
-        html.Div([
-            # get_upload_view(),
+    return html.Div(
+        children=[
             dbc.Row([
                 dbc.Col([
-                    html.Label("בחר תקופת זמן", style={'color': 'white'}),
-                    dcc.Dropdown(
-                        id='time-dropdown',
-                        options=[{'label': t, 'value': t} for t in get_last_7_dates()],
-                        multi=False,
-                        value=str(datetime.now().date()),
-                    )], width=12),
-            ]),
-            dbc.Row([
-                dbc.Col(dcc.Graph(id='sales-by-agent'), width=12),
-            ], justify='center'),
-            html.Br(),
-            dbc.Row([
-                dbc.Col([
-                    html.Label("בחר לקוח", style={'color': 'white'}),
-                    dcc.Dropdown(
-                        id='customer-dropdown',
-                        options=[{'label': cust, 'value': cust} for cust in sales_df[CUSTOMER_NAME].unique()] + [
-                            {'label': 'הכל', 'value': 'all'}],
-                        multi=False,
-                        value='all',
-                    )], width=4),
+                    html.Label("טווח תאריכים - כללי", className="text-center"),
+                    dcc.DatePickerRange(
+                        id='date-picker-range-1',
+                        start_date='2024-01-01',
+                        end_date='2024-12-31',
+                        display_format='DD-MM-YYYY',
+                        style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
+                               "alignItems": "center"}
+                        # Centers the DatePickerRange and adds space
+                    ),
+                    html.Div(id='general-date-picker-range')
+                ], width=4,
+                    style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
+                           "alignItems": "center"}),
 
                 dbc.Col([
-                    html.Label("בחר מוצר", style={'color': 'white'}),
-                    dcc.Dropdown(
-                        id='product-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in sales_df[PRODUCT_NAME].unique()] + [
-                            {'label': 'הכל', 'value': 'all'}],
-                        multi=False,
-                        value='all',
-                    )], width=4),
-
+                    html.Label("טווח תאריכים - לבדיקה", className="text-center"),
+                    dcc.DatePickerRange(
+                        id='date-picker-range-2',
+                        start_date='2024-06-01',
+                        end_date='2024-09-01',
+                        display_format='DD-MM-YYYY',
+                        style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
+                               "alignItems": "center"}
+                        # Centers the DatePickerRange and adds space
+                    ),
+                    html.Div(id='examination-date-picker-range')
+                ], width=4,
+                    style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
+                           "alignItems": "center"}),
                 dbc.Col([
-                    html.Label("בחר סוכן", style={'color': 'white'}),
+                    html.Label("בחר משפחה", className="text-center"),
                     dcc.Dropdown(
-                        id='agent-dropdown',
-                        options=[{'label': prod, 'value': prod} for prod in sales_df[AGENT_NAME].unique()] + [
-                            {'label': 'הכל', 'value': 'all'}],
+                        id='family-dropdown',
+                        options=[{'label': family, 'value': family} for family in
+                                 products_family_df[FAMILY_NAME].unique()] + [
+                                    {'label': 'הכל', 'value': 'all'}],
                         multi=False,
                         value='all',
-                    )], width=4),
+                        style={"padding-top": "1%", "alignItems": "center"}
+                    )], width=4,
+                        style={"padding-top": "1%",
+                           "alignItems": "center"})
             ]),
-            dbc.Row([
-                dbc.Col(dcc.Graph(id='revenue-graph'), width=12),
-            ], justify='center'),
-            html.Br(),
-            dbc.Row([
-                dbc.Col(dbc.Card(dbc.CardBody(get_top_k_products_table())), width=6),
-                dbc.Col(dbc.Card(dbc.CardBody(get_best_products())), width=6),
-            ], justify='center'),
-            html.Br(),
-            dbc.Row([
-                dbc.Col(dbc.Card(dbc.CardBody(get_best_customers())), width=6),
-                dbc.Col(dbc.Card(dbc.CardBody(get_best_agents())), width=6),
-            ], justify='center'),
-            html.Br(),
-            dbc.Row([
-                dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
-            ], justify='center'),
-            html.Br()
-        ]))
+            html.Div(id='data-table-container', style={"padding-top": "1%",
+                                                       "alignItems": "center"}),
+            html.Div([
+                dbc.Button("Download Excel", id="download-button", n_clicks=0),
+                dcc.Download(id="download-dataframe-xlsx")
+            ])
+        ])
+    #     dbc.Row([
+    #         dbc.Col(dcc.Graph(id='sales-by-agent'), width=12),
+    #     ], justify='center'),
+    #     html.Br(),
+    #     dbc.Row([
+    #         dbc.Col([
+    #             html.Label("בחר לקוח"), #, style={'color': 'white'}),
+    #             dcc.Dropdown(
+    #                 id='customer-dropdown',
+    #                 options=[{'label': cust, 'value': cust} for cust in
+    #                          sales_df[CUSTOMER_NAME].unique()] + [
+    #                             {'label': 'הכל', 'value': 'all'}],
+    #                 multi=False,
+    #                 value='all',
+    #             )], width=4),
+    #
+    #         dbc.Col([
+    #             html.Label("בחר מוצר"), #, style={'color': 'white'}),
+    #             dcc.Dropdown(
+    #                 id='product-dropdown',
+    #                 options=[{'label': prod, 'value': prod} for prod in
+    #                          sales_df[PRODUCT_NAME].unique()] + [
+    #                             {'label': 'הכל', 'value': 'all'}],
+    #                 multi=False,
+    #                 value='all',
+    #             )], width=4),
+    #
+    #         dbc.Col([
+    #             html.Label("בחר סוכן"), #, style={'color': 'white'}),
+    #             dcc.Dropdown(
+    #                 id='agent-dropdown',
+    #                 options=[{'label': prod, 'value': prod} for prod in sales_df[AGENT_NAME].unique()] + [
+    #                     {'label': 'הכל', 'value': 'all'}],
+    #                 multi=False,
+    #                 value='all',
+    #             )], width=4),
+    #     ]),
+    #     dbc.Row([
+    #         dbc.Col(dcc.Graph(id='revenue-graph'), width=12),
+    #     ], justify='center'),
+    #     html.Br(),
+    #     dbc.Row([
+    #         dbc.Col(dbc.Card(dbc.CardBody(get_top_k_products_table())), width=6),
+    #         dbc.Col(dbc.Card(dbc.CardBody(get_best_products())), width=6),
+    #     ], justify='center'),
+    #     html.Br(),
+    #     dbc.Row([
+    #         dbc.Col(dbc.Card(dbc.CardBody(get_best_customers())), width=6),
+    #         dbc.Col(dbc.Card(dbc.CardBody(get_best_agents())), width=6),
+    #     ], justify='center'),
+    #     html.Br(),
+    #     dbc.Row([
+    #         dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
+    #     ], justify='center'),
+    #     html.Br()
+    # ]))
 
 
 def get_dying_products_by_n_orders(n_orders_last_year: int):
     all_sales_by_product = sales_df.groupby(PRODUCT_ID)[QUANTITY].sum()
     dead_products_stats = all_sales_by_product[all_sales_by_product <= n_orders_last_year]
     dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_2_YEARS}, axis=1)
-    products_inventory = inventory_df[[PRODUCT_ID, PRODUCT_NAME, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY}, axis=1)
+    products_inventory = inventory_df[[PRODUCT_ID, PRODUCT_NAME, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
+                                                                                   axis=1)
 
     dead_products_with_inventory = pd.merge(dead_products_stats, products_inventory,
                                             how='inner', on=PRODUCT_ID)
@@ -159,9 +205,10 @@ def get_dying_products_by_n_orders(n_orders_last_year: int):
     dead_products_with_inventory_and_procurement = pd.merge(dead_products_with_inventory_larger_than_zero,
                                                             unique_products_procurement[
                                                                 [PRODUCT_ID, PRODUCT_NAME, SUM_PROCUREMENT,
-                                                                 QUANTITY_PROCUREMENT]], how='left', on=[PRODUCT_ID, PRODUCT_NAME])
+                                                                 QUANTITY_PROCUREMENT]], how='left',
+                                                            on=[PRODUCT_ID, PRODUCT_NAME])
     dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]] = \
-    dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]].fillna(0)
+        dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]].fillna(0)
     dead_products_stats = pd.merge(dead_products_with_inventory, products_procurement[
         [PRODUCT_ID, PRODUCT_NAME, ORDER_DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
                                    on=PRODUCT_ID)
@@ -227,16 +274,33 @@ def get_top_k_products_table():
                                                                ascending=False)
     revenue_ratio = popular_products_df[TOTAL_REVENUE].sum() / sales_df[TOTAL_REVENUE].sum()
     popular_products_df = popular_products_df[[PRODUCT_NAME]].drop_duplicates()
-    return html.Div([html.Label(f" 20 אחוז מהמוצרים שמכניסים 70 אחוז מהרווח", style={'color': 'white'}),
+    return html.Div([html.Label(f" 20 אחוז מהמוצרים שמכניסים 70 אחוז מהרווח"),  # , style={'color': 'white'}),
                      dash_table.DataTable(
                          data=popular_products_df.to_dict('records'),
                          columns=[{'name': col, 'id': col} for col in popular_products_df.columns],
                          page_size=10,
-                         style_data=STYLE_DATA,
-                         style_table=STYLE_TABLE,
-                         style_cell=STYLE_CELL,
-                         style_header=STYLE_HEADER,
-                         style_data_conditional=[],
+                         style_table={
+                             'direction': 'rtl',  # Make the table right to left
+                             'width': '80%',
+                             'margin': '0 auto',
+                             'font-family': 'Arial, sans-serif'
+                         },
+                         style_cell={
+                             'textAlign': 'center',
+                             'font-family': 'Arial, sans-serif',
+                             'padding': '10px'
+                         },
+                         style_header={
+                             'backgroundColor': 'lightblue',
+                             'fontWeight': 'bold',
+                             'font-family': 'Arial, sans-serif',
+                             'textAlign': 'center'
+                         },
+                         # style_data=STYLE_DATA,
+                         # style_table=STYLE_TABLE,
+                         # style_cell=STYLE_CELL,
+                         # style_header=STYLE_HEADER,
+                         # style_data_conditional=[],
                          sort_action="native",
                          filter_action='native'
                      )])
@@ -252,7 +316,7 @@ def get_best_agents():
                               title='סוכנים שהרוויחו הכי הרבה בשנה האחרונה',
                               template='plotly_dark')
 
-    return dcc.Graph(id='product-pie', figure=agents_pie_chart)
+    return dcc.Graph(id='agent-pie', figure=agents_pie_chart)
 
 
 def get_updated_products_data(uploaded_products_df: pd.DataFrame):
@@ -283,6 +347,96 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     return updated_products_data[columns]
 
 
+def _add_column(products_data: pd.DataFrame, df: pd.DataFrame, absolute_start_date: datetime,
+                absolute_end_date: datetime, column_name: str):
+    general_df_snapshot = df[(df[DATE] >= absolute_start_date) & (df[DATE] <= absolute_end_date)]
+    general_df = general_df_snapshot.groupby(PRODUCT_ID)[QUANTITY].sum().reset_index().rename(
+        {QUANTITY: column_name}, axis=1)
+    updated_products_data = pd.merge(products_data, general_df, on=PRODUCT_ID, how='left')
+    return updated_products_data
+
+
+def _add_general_sales_column(products_data: pd.DataFrame, sales_df: pd.DataFrame, absolute_start_date: datetime,
+                              absolute_end_date: datetime):
+    return _add_column(products_data, sales_df, absolute_start_date, absolute_end_date, GENERAL_SALES)
+
+
+def _add_examined_sales_column(products_data: pd.DataFrame, sales_df: pd.DataFrame, examined_start_date: datetime,
+                               examined_end_date: datetime):
+    return _add_column(products_data, sales_df, examined_start_date, examined_end_date, EXAMINED_SALES)
+
+
+def _add_general_buys_column(products_data: pd.DataFrame, procurement_bills_df: pd.DataFrame,
+                             absolute_start_date: datetime,
+                             absolute_end_date: datetime):
+    return _add_column(products_data, procurement_bills_df, absolute_start_date, absolute_end_date, GENERAL_BUYS)
+
+
+def _add_opening_quantity_column(products_data: pd.DataFrame, absolute_start_date: datetime):
+    opening_date = str(absolute_start_date.replace(day=1))
+    if opening_date in inventory_by_date_df.columns:
+        opening_quantity = inventory_by_date_df[[opening_date, PRODUCT_ID]]
+        opening_quantity = opening_quantity.rename({opening_date: OPENING_QUANTITY}, axis=1)
+        products_data = pd.merge(products_data,
+                                 opening_quantity, on=PRODUCT_ID,
+                                 how='left')
+    else:
+        products_data[OPENING_QUANTITY] = None
+
+    return products_data
+
+
+def _add_inventory_column(products_data: pd.DataFrame):
+    inventory_by_warehouse = \
+        inventory_df.pivot_table(index=PRODUCT_ID, columns=['תאור מחסן'], values='כמות', fill_value=0).reset_index()
+
+    products_data = pd.merge(products_data, inventory_by_warehouse, on=PRODUCT_ID, how='left')
+    products_data[INVENTORY] = products_data[MAIN_INVENTORY]
+
+    return products_data
+
+
+def _add_family_column(products_data: pd.DataFrame):
+    return pd.merge(products_data, products_family_df[[PRODUCT_ID, FAMILY_NAME]], on=PRODUCT_ID,
+                    how='left')
+
+
+def get_products_data(absolute_start_date: datetime,
+                      absolute_end_date: datetime,
+                      examined_start_date: datetime, examined_end_date: datetime):
+    products_data = _add_general_sales_column(products_availability_df, sales_df, absolute_start_date,
+                                              absolute_end_date)
+
+    products_data = _add_examined_sales_column(products_data, sales_df, examined_start_date, examined_end_date)
+
+    products_data = _add_general_buys_column(products_data, sales_df, absolute_start_date, absolute_end_date)
+
+    products_data = _add_opening_quantity_column(products_data, absolute_start_date)
+
+    products_data = _add_inventory_column(products_data)
+
+    products_data = _add_family_column(products_data)
+    # updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
+
+    # on_the_way_orders = procurement_bills_df[
+    #     (procurement_bills_df[ON_THE_WAY_STATUS] == 'עומד לבוא') & (procurement_bills_df[ORDER_STATUS] != 'סגורה')]
+    # on_the_way_orders = on_the_way_orders.groupby(PRODUCT_ID)[QUANTITY].sum().reset_index().rename(
+    #     {QUANTITY: ON_THE_WAY}, axis=1)
+
+    # updated_products_data = pd.merge(products_availability_df,
+    #                                  sales_quantities_df, on=PRODUCT_ID,
+    #                                  how='left')
+
+    products_data = products_data.rename({PROCUREMENT_ORDERS: ORDER_QUANTITY}, axis=1)
+
+    columns = [PRODUCT_ID, PRODUCT_NAME, FAMILY_NAME, OPENING_QUANTITY, GENERAL_BUYS, GENERAL_SALES, EXAMINED_SALES,
+               INVENTORY,
+               LAST_PRICE,
+               ORDER_QUANTITY][::-1]
+
+    return products_data[columns].sort_values([FAMILY_NAME, PRODUCT_NAME]).fillna(0)
+
+
 def register_sales_and_revenue_callbacks(app):
     @app.callback(
         Output('sales-by-agent', 'figure'),
@@ -290,7 +444,8 @@ def register_sales_and_revenue_callbacks(app):
     )
     def update_graph(selected_date: datetime):
         filtered_bills_df = bills_df[bills_df[DATE] == datetime.strptime(selected_date, '%Y-%m-%d')]
-        filtered_bills_df = filtered_bills_df.groupby(AGENT_NAME)[[SUM]].sum().reset_index().sort_values(SUM, ascending=False)
+        filtered_bills_df = filtered_bills_df.groupby(AGENT_NAME)[[SUM]].sum().reset_index().sort_values(SUM,
+                                                                                                         ascending=False)
 
         fig = go.Figure()
         fig.add_trace(go.Bar(
@@ -389,6 +544,59 @@ def register_sales_and_revenue_callbacks(app):
 
         return "הקובץ הועלה בהצלחה! הורדנו למחשב את הקובץ המעודכן", dcc.send_bytes(final_output.getvalue(),
                                                                                    "updated_" + filename)
+
+    @app.callback(
+        [Output('data-table-container', 'children'),
+         Output('download-dataframe-xlsx', 'data')],
+        [Input('date-picker-range-1', 'start_date'),
+         Input('date-picker-range-1', 'end_date'),
+         Input('date-picker-range-2', 'start_date'),
+         Input('date-picker-range-2', 'end_date'),
+         Input('family-dropdown', 'value')],
+        [State('download-button', 'n_clicks'),
+         ]
+    )
+    def update_table_and_download(absolute_start_date, absolute_end_date, examined_start_date, examined_end_date,
+                                  selected_family, n_clicks):
+        absolute_start_date = datetime.strptime(absolute_start_date, '%Y-%m-%d')
+        absolute_end_date = datetime.strptime(absolute_end_date, '%Y-%m-%d')
+        examined_start_date = datetime.strptime(examined_start_date, '%Y-%m-%d')
+        examined_end_date = datetime.strptime(examined_end_date, '%Y-%m-%d')
+        products_data = get_products_data(absolute_start_date, absolute_end_date, examined_start_date,
+                                          examined_end_date)
+
+        if selected_family != ALL:
+            products_data = products_data[products_data[FAMILY_NAME] == selected_family]
+        data_table = dash_table.DataTable(
+            id='data-table',
+            columns=[{"name": col, "id": col} for col in products_data.columns],
+            data=products_data.to_dict('records'),
+            style_table={
+                'height': '300px', 'overflowY': 'auto',
+                # 'width': '80%',
+                # 'margin': '0 auto',
+                'font-family': 'Arial, sans-serif'
+            },
+            style_cell={
+                'textAlign': 'center',
+                'font-family': 'Arial, sans-serif',
+            },
+            style_header={
+                'backgroundColor': 'lightblue',
+                'fontWeight': 'bold',
+                'font-family': 'Arial, sans-serif',
+                'textAlign': 'center'
+            },
+        )
+
+        if n_clicks > 0:
+            output = io.BytesIO()
+            products_data.to_excel(output, index=False)
+            output.seek(0)
+
+            return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="dataframe.xlsx")
+
+        return data_table, None
 
     # @app.callback(
     #     Output("download-excel", "data"),

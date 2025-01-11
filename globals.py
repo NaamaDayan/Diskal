@@ -6,13 +6,8 @@ import pandas as pd
 from constants import TOTAL_REVENUE, SUM, DATE, ORDER_DATE, MONTH, YEAR, PRODUCT_ID, \
     YEAR_MONTH, SALES_ALL_MONTHS, SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, QUANTITY, \
     ORDERS_REMAINING
+from gmail_automation import authenticate_gmail, download_attachments, was_downloaded_today, update_last_download_date
 
-
-# stats_df = pd.read_excel('data/זמינות מוצרים.xlsx')
-# stats_df[MANUFACTURER] = stats_df[PRODUCT_ID].str.extract('([A-Za-z]+)')
-# stats_df[MANUFACTURER] = stats_df[MANUFACTURER].apply(lambda s: s if type(s) == str and len(s) >= 2 else None)
-# stats_df[SALES_ALL_MONTHS] = stats_df[SALES_1_MONTH_BEFORE] + stats_df[SALES_2_MONTH_BEFORE] + stats_df[SALES_3_MONTH_BEFORE] + stats_df[
-#     CURRENT_MONTH_SALES]
 
 def get_previous_12_months_df_by_product(product_ids: List[str]):
     current_date = datetime.now()
@@ -40,14 +35,77 @@ def get_product_quantities_over_months(df: pd.DataFrame, column_prefix: str = ' 
     return quantities_df
 
 
-sales_df = pd.read_csv('data/נעמה מכירות.csv')
-sales_df[TOTAL_REVENUE] = pd.to_numeric(sales_df[TOTAL_REVENUE], errors='coerce')
-sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
-sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
-sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
-sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
-sales_df[MONTH] = sales_df[DATE].dt.month
-sales_df[YEAR] = sales_df[DATE].dt.year
+def pre_process_sales_df(sales_df: pd.DataFrame):
+    sales_df[TOTAL_REVENUE] = pd.to_numeric(sales_df[TOTAL_REVENUE], errors='coerce')
+    sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
+    sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
+    sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
+    sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+    sales_df[MONTH] = sales_df[DATE].dt.month
+    sales_df[YEAR] = sales_df[DATE].dt.year
+    return sales_df
+
+
+def pre_process_procurement_bills_df(procurement_bills_df: pd.DataFrame):
+    procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
+    procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
+    procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
+    procurement_bills_df[YEAR] = procurement_bills_df[DATE].dt.year
+    procurement_bills_df[YEAR_MONTH] = procurement_bills_df[YEAR].astype(str) + '-' + procurement_bills_df[
+        MONTH].astype(
+        str).str.zfill(2)
+    return procurement_bills_df
+
+
+def update_base_data(base_data_path: str, recent_data: pd.DataFrame, pre_process_caller):
+    base_data = pd.read_csv(base_data_path)
+    base_data = pd.concat([pre_process_caller(base_data), pre_process_caller(recent_data)])
+    base_data = base_data.drop_duplicates()
+    base_data.to_csv(base_data_path, index=False)
+
+
+def update_inventory_by_date(recent_inventory_by_date_df: pd.DataFrame):
+    inventory_by_date = pd.read_csv('data/inventory_by_date.csv')
+    current_month = str(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0))
+    if current_month not in inventory_by_date.columns:
+        recent_inventory_by_date_df = recent_inventory_by_date_df.rename({'מק"ט': PRODUCT_ID, 'יתרה': current_month}, axis=1)[
+            [PRODUCT_ID, current_month]]
+        inventory_by_date = pd.merge(inventory_by_date, recent_inventory_by_date_df, on=PRODUCT_ID)
+        inventory_by_date.to_csv('data/inventory_by_date.csv', index=False)
+
+
+if not was_downloaded_today():
+    service = authenticate_gmail()
+
+    products_availability_df = download_attachments(service, subject='זמינות מוצרים')
+    products_availability_df.to_csv('data/products_availability.csv', index=False)
+    print("after products availability")
+
+    inventory_df = download_attachments(service, subject='נעמה מלאי')
+    inventory_df.to_csv('data/נעמה מלאי נוכחי.csv', index=False)
+    print("after inventory availability")
+
+    recent_procurement_bills_df = download_attachments(service, subject='נעמה - חשבוניות רכש')
+    update_base_data('data/נעמה חשבונית רכש.csv', recent_procurement_bills_df, pre_process_procurement_bills_df)
+    print("after bills availability")
+
+    recent_sales_df = download_attachments(service, subject='נעמה מכירות')
+    update_base_data('data/נעמה מכירות.csv', recent_sales_df, pre_process_sales_df)
+    print("after inventory availability")
+
+    recent_inventory_by_date_df = download_attachments(service, subject='סה"כ מלאי לתאריך לפי מוצר')
+    update_inventory_by_date(recent_inventory_by_date_df)
+
+    update_last_download_date()
+
+
+print("already downloaded")
+inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
+products_availability_df = pd.read_csv('data/products_availability.csv')
+sales_df = pre_process_sales_df(pd.read_csv('data/נעמה מכירות.csv'))
+procurement_bills_df = pre_process_procurement_bills_df(pd.read_csv('data/נעמה חשבונית רכש.csv'))
+inventory_by_date_df = pd.read_csv('data/inventory_by_date.csv')
+products_family_df = pd.read_csv('data/products_family.csv')
 
 bills_df = pd.read_csv('data/נעמה חשבוניות.csv')
 bills_df[TOTAL_REVENUE] = pd.to_numeric(bills_df[TOTAL_REVENUE], errors='coerce')
@@ -57,7 +115,6 @@ bills_df[DATE] = pd.to_datetime(bills_df['old_date'], format='%Y-%d-%m', errors=
 bills_df[DATE] = bills_df[DATE].fillna(pd.to_datetime(bills_df['old_date'], format='%d/%m/%Y', errors='coerce'))
 bills_df[MONTH] = bills_df[DATE].dt.month
 bills_df[YEAR] = bills_df[DATE].dt.year
-
 
 orders_df = pd.read_csv('data/נעמה הזמנות.csv')
 orders_df[TOTAL_REVENUE] = pd.to_numeric(orders_df[TOTAL_REVENUE], errors='coerce')
@@ -77,16 +134,7 @@ procurement_df[YEAR_MONTH] = procurement_df[YEAR].astype(str) + '-' + procuremen
 
 procurement_df[SUM] = pd.to_numeric(procurement_df[SUM], errors='coerce')
 
-procurement_bills_df = pd.read_csv('data/נעמה חשבונית רכש.csv')
-procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
-procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
-procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
-procurement_bills_df[YEAR] = procurement_bills_df[DATE].dt.year
-procurement_bills_df[YEAR_MONTH] = procurement_bills_df[YEAR].astype(str) + '-' + procurement_bills_df[MONTH].astype(
-    str).str.zfill(2)
-
-
-inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
+# inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
 
 sales_quantities_df = get_product_quantities_over_months(sales_df)
 sales_all_months = sales_quantities_df.sum(axis=1)
