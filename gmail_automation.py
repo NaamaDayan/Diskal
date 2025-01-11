@@ -67,17 +67,15 @@ def download_attachments(service, user_id='me',
                 ).execute()
 
                 all_dfs.append(_process_html_attachment_to_df(attachment['data']))
-                print ("after append html")
-    return pd.concat(all_dfs)
+    return pd.concat(all_dfs).drop_duplicates()
+
 
 
 def _process_html_attachment_to_df(file_data) -> pd.DataFrame:
     html_content = base64.urlsafe_b64decode(file_data).decode('utf-8')
     soup = BeautifulSoup(html_content, 'html.parser')
     table = soup.find('table', class_='rulesall')
-    print ("before df")
     df =  pd.read_html(str(table))[0]
-    print ("after df")
     return df
 
 
