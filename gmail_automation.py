@@ -9,6 +9,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+from constants import PRODUCT_ID
+
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 def was_downloaded_today():
@@ -47,7 +49,7 @@ def download_attachments(service, user_id='me',
                          sender_email='diskalpai25@gmail.com',
                          subject='זמינות מוצרים') -> pd.DataFrame:
     today_date = (datetime.now()).strftime('%Y/%m/%d')
-    query = f"from:{sender_email} after:{today_date} has:attachment subject:{subject}"
+    query = f"from:{sender_email} after:{today_date} has:attachment subject:\"{subject}\""
     results = service.users().messages().list(userId='me', q=query).execute()
     messages = results.get('messages', [])
 
@@ -75,8 +77,9 @@ def _process_html_attachment_to_df(file_data) -> pd.DataFrame:
     html_content = base64.urlsafe_b64decode(file_data).decode('utf-8')
     soup = BeautifulSoup(html_content, 'html.parser')
     table = soup.find('table', class_='rulesall')
-    df =  pd.read_html(str(table))[0]
+    df = pd.read_html(str(table))[0]
     filtered_df = df[~df.applymap(str).apply(lambda x: x.str.contains('סה"כ', na=False)).any(axis=1)]
+    filtered_df.rename({'מק"ט': PRODUCT_ID}, axis=1, inplace=True)
     return filtered_df
 
 

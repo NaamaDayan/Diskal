@@ -92,14 +92,14 @@ def update_inventory_by_date(recent_inventory_by_date_df: pd.DataFrame):
 
 if not was_downloaded_today():
     service = authenticate_gmail()
-
-    products_availability_df = download_attachments(service, subject='זמינות מוצרים')
-    products_availability_df.to_csv('data/products_availability.csv', index=False)
-    print("after products availability")
-
-    inventory_df = download_attachments(service, subject='נעמה מלאי')
-    inventory_df.to_csv('data/נעמה מלאי נוכחי.csv', index=False)
-    print("after inventory availability")
+    #
+    # products_availability_df = download_attachments(service, subject='זמינות מוצרים')
+    # products_availability_df.to_csv('data/products_availability.csv', index=False)
+    # print("after products availability")
+    #
+    # inventory_df = download_attachments(service, subject='נעמה מלאי')
+    # inventory_df.to_csv('data/נעמה מלאי נוכחי.csv', index=False)
+    # print("after inventory availability")
 
     recent_procurement_bills_df = download_attachments(service, subject='נעמה - חשבוניות רכש')
     update_base_data('data/נעמה חשבונית רכש.csv', recent_procurement_bills_df, pre_process_procurement_bills_df)
@@ -109,8 +109,8 @@ if not was_downloaded_today():
     update_base_data('data/נעמה מכירות.csv', recent_sales_df, pre_process_sales_df)
     print("after inventory availability")
 
-    recent_inventory_by_date_df = download_attachments(service, subject='סה"כ מלאי לתאריך לפי מוצר')
-    update_inventory_by_date(recent_inventory_by_date_df)
+    # recent_inventory_by_date_df = download_attachments(service, subject='סה"כ מלאי לתאריך לפי מוצר')
+    # update_inventory_by_date(recent_inventory_by_date_df)
 
     update_last_download_date()
 
