@@ -76,6 +76,7 @@ def _process_html_attachment_to_df(file_data) -> pd.DataFrame:
     soup = BeautifulSoup(html_content, 'html.parser')
     table = soup.find('table', class_='rulesall')
     df =  pd.read_html(str(table))[0]
-    return df
+    filtered_df = df[~df.applymap(str).apply(lambda x: x.str.contains('סה"כ', na=False)).any(axis=1)]
+    return filtered_df
 
 
