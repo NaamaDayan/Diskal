@@ -552,9 +552,8 @@ def register_sales_and_revenue_callbacks(app):
          Input('date-picker-range-1', 'end_date'),
          Input('date-picker-range-2', 'start_date'),
          Input('date-picker-range-2', 'end_date'),
-         Input('family-dropdown', 'value')],
-        [State('download-button', 'n_clicks'),
-         ]
+         Input('family-dropdown', 'value'),
+         Input('download-button', 'n_clicks')],
     )
     def update_table_and_download(absolute_start_date, absolute_end_date, examined_start_date, examined_end_date,
                                   selected_family, n_clicks):
@@ -594,7 +593,7 @@ def register_sales_and_revenue_callbacks(app):
             products_data.to_excel(output, index=False)
             output.seek(0)
 
-            return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="dataframe.xlsx")
+            return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="זמינות מוצרים.xlsx")
 
         return data_table, None
 
