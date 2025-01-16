@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import dash_table
 from dash import dcc, html
+from dash.dcc import send_bytes
 from dash.dependencies import Input, Output, State
 from openpyxl import load_workbook
 
@@ -115,7 +116,7 @@ def get_overview_view():
                         value='all',
                         style={"padding-top": "1%", "alignItems": "center"}
                     )], width=4,
-                        style={"padding-top": "1%",
+                    style={"padding-top": "1%",
                            "alignItems": "center"})
             ]),
             html.Div(id='data-table-container', style={"padding-top": "1%",
@@ -409,7 +410,8 @@ def get_products_data(absolute_start_date: datetime,
 
     products_data = _add_examined_sales_column(products_data, sales_df, examined_start_date, examined_end_date)
 
-    products_data = _add_general_buys_column(products_data, sales_df, absolute_start_date, absolute_end_date)
+    products_data = _add_general_buys_column(products_data, procurement_bills_df, absolute_start_date,
+                                             absolute_end_date)
 
     products_data = _add_opening_quantity_column(products_data, absolute_start_date)
 
@@ -589,11 +591,29 @@ def register_sales_and_revenue_callbacks(app):
         )
 
         if n_clicks > 0:
-            output = io.BytesIO()
-            products_data.to_excel(output, index=False)
-            output.seek(0)
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+                products_data.to_excel(writer, index=False, sheet_name="Sheet1")
+            buffer.seek(0)
 
-            return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="זמינות מוצרים.xlsx")
+            # Encode the buffer to base64 for download
+            encoded_excel = base64.b64encode(buffer.read()).decode()
+
+            return data_table, dcc.send_bytes(buffer.getvalue(), "dataframe.xlsx")
+            #
+            # output = io.BytesIO()
+            # with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            #     products_data.to_excel(writer, index=False)
+            # output.seek(0)
+            #
+            # return data_table, send_bytes(lambda: output.getvalue(), "dataframe.xlsx")
+
+        # if n_clicks > 0:
+        #     output = io.BytesIO()
+        #     products_data.to_excel(output, index=False)
+        #     output.seek(0)
+        #
+        #     return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="products_availability.xlsx")
 
         return data_table, None
 
