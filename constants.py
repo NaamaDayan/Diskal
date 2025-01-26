@@ -10,7 +10,7 @@ CURRENT_MONTH_SALES = 'נמכר בחודש נוכחי'
 SALES_1_MONTH_BEFORE = 'נמכר בחודש הקודם'
 SALES_2_MONTH_BEFORE = 'נמכר לפני חודשיים'
 SALES_3_MONTH_BEFORE = 'נמכר לפני 3 חודשים'
-TOTAL_SALES_2_YEARS = 'סה"כ מכירות בשנתיים האחרונות'
+TOTAL_SALES_1_YEARS = 'סה"כ מכירות בשנה האחרונה'
 SUM = "סכום (שח)"
 TOTAL_REVENUE = "רווח (שח)"
 AGENT_NAME = 'שם סוכן'
@@ -24,6 +24,7 @@ INVENTORY_QUANTITY = "כמות במלאי"
 INVENTORY = 'מלאי זמין'
 PROCUREMENT_ORDERS = 'הזמנות רכש פתוחות'
 
+EXTENDED_VIEW = 'צפיה מורחבת'
 ORDER_QUANTITY = 'כמות בהזמנה'
 GENERAL_BUYS = 'כמות קניות'
 GENERAL_SALES = 'מכירות כללי'
@@ -35,7 +36,7 @@ DAMAGED_INVENTORY = 'מחסן פגומים'
 MAIN_INVENTORY = 'מחסן ראשי'
 PARTRIDE_INVENTORY = 'מחסן פארטסרייד פאי'
 INQIRIES_INVENTORY = 'מחסן בירורים'
-HAKOL_PO_INVENTORY = 'הכל פה' #we remove disal ta warehouse, as it is not being presented in the original inventory column
+HAKOL_PO_INVENTORY = 'הכל פה'  # we remove disal ta warehouse, as it is not being presented in the original inventory column
 ON_THE_WAY = 'עומד לבוא'
 ON_THE_WAY_STATUS = 'סטטוס שורת הזמנת רכש'
 ORDER_STATUS = 'סטטוס הזמנה'
@@ -51,6 +52,18 @@ DROP_DOWN_STYLE = {
     # 'border': '1px solid #555',
     # 'borderRadius': '4px'
 }
+
+
+MOVEMENT_TYPE = 'תאור סוג תנועת מלאי'
+RETURN_TO_SUPPLIER = 'החזרת סחורה לספק'
+RETURN_FROM_CLIENT = 'החזרה מלקוח'
+WAREHOUSE_TRANSFER = 'העברה בין מחסנים'
+INVENTORY_COUNT = 'ספירות מלאי'
+RECEIVE_FROM_SUPPLIER = 'קבלות סחורה מספק'
+FROM_WAREHOUSE = 'ממחסן'
+TO_WAREHOUSE = 'למחסן'
+MOVEMENTS_COUNT = 'כמות (קניה/מכירה)'
+MAIN_WAREHOUSE = 'Main'
 
 
 PROCUREMENT_ID = 'חשבונית'
@@ -71,3 +84,20 @@ STYLE_HEADER = {
     'direction': 'rtl',
     "width": "auto",
 }
+
+SUPPLIERS = {'GSP': 'GSP',
+             'LPR': 'LPR',
+             'LONGKOU': 'LONGKOU',
+             'DOLZ': 'DOLZ',
+             'MATEC': 'MATEC',
+             'BAW': 'BAW',
+             'OSCAR': 'KOR'}
+
+PRODUCTS_DATA_COLUMNS = [PRODUCT_ID, PRODUCT_NAME, FAMILY_NAME, OPENING_QUANTITY, GENERAL_BUYS, GENERAL_SALES, EXAMINED_SALES,
+                   INVENTORY,
+                   LAST_PRICE,
+                   ORDER_QUANTITY, RECEIVE_FROM_SUPPLIER, INVENTORY_COUNT, WAREHOUSE_TRANSFER, RETURN_FROM_CLIENT,
+                   RETURN_TO_SUPPLIER, 'בדיקת תקינות'][::-1]
+
+HIDDEN_COLUMNS = [RECEIVE_FROM_SUPPLIER, INVENTORY_COUNT, WAREHOUSE_TRANSFER, RETURN_FROM_CLIENT,
+                   RETURN_TO_SUPPLIER, 'בדיקת תקינות']

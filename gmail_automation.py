@@ -46,7 +46,7 @@ def authenticate_gmail():
 
 
 def download_attachments(service, user_id='me',
-                         sender_email='diskalpai25@gmail.com',
+                         sender_email='namadayan@gmail.com',
                          subject='זמינות מוצרים') -> pd.DataFrame:
     today_date = (datetime.now()).strftime('%Y/%m/%d')
     query = f"from:{sender_email} after:{today_date} has:attachment subject:\"{subject}\""
@@ -60,15 +60,15 @@ def download_attachments(service, user_id='me',
     all_dfs = []
     for msg in messages:
         msg_data = service.users().messages().get(userId=user_id, id=msg['id']).execute()
-        part = msg_data['payload']
-        if part['filename']:
-            attachment_id = part['body'].get('attachmentId')
-            if attachment_id:
-                attachment = service.users().messages().attachments().get(
-                    userId=user_id, messageId=msg['id'], id=attachment_id
-                ).execute()
+        for part in msg_data['payload']['parts']:
+            if part['filename']:
+                attachment_id = part['body'].get('attachmentId')
+                if attachment_id:
+                    attachment = service.users().messages().attachments().get(
+                        userId=user_id, messageId=msg['id'], id=attachment_id
+                    ).execute()
 
-                all_dfs.append(_process_html_attachment_to_df(attachment['data']))
+                    all_dfs.append(_process_html_attachment_to_df(attachment['data']))
     return pd.concat(all_dfs).drop_duplicates()
 
 
@@ -79,6 +79,8 @@ def _process_html_attachment_to_df(file_data) -> pd.DataFrame:
     table = soup.find('table', class_='rulesall')
     df = pd.read_html(str(table))[0]
     filtered_df = df[~df.applymap(str).apply(lambda x: x.str.contains('סה"כ', na=False)).any(axis=1)]
+    for col in filtered_df.columns:
+        filtered_df[col] = filtered_df[col].fillna(method='ffill')
     filtered_df.rename({'מק"ט': PRODUCT_ID}, axis=1, inplace=True)
     return filtered_df
 

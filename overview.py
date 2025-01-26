@@ -1,6 +1,7 @@
 import base64
 import io
 from datetime import datetime, timedelta
+from typing import List
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -8,19 +9,20 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash import dash_table
 from dash import dcc, html
-from dash.dcc import send_bytes
 from dash.dependencies import Input, Output, State
 from openpyxl import load_workbook
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
-    AGENT_NAME, PRODUCT_ID, MONTH, QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, ORDER_DATE, \
+    AGENT_NAME, PRODUCT_ID, MONTH, QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, \
     SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
     PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, \
-    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_2_YEARS, ORDER_QUANTITY, \
-    GENERAL_SALES, EXAMINED_SALES, GENERAL_BUYS, OPENING_QUANTITY, FAMILY_NAME
+    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_1_YEARS, ORDER_QUANTITY, \
+    GENERAL_SALES, EXAMINED_SALES, GENERAL_BUYS, OPENING_QUANTITY, FAMILY_NAME, SUPPLIERS, MOVEMENT_TYPE, \
+    RETURN_TO_SUPPLIER, RETURN_FROM_CLIENT, WAREHOUSE_TRANSFER, INVENTORY_COUNT, RECEIVE_FROM_SUPPLIER, MAIN_WAREHOUSE, \
+    FROM_WAREHOUSE, MOVEMENTS_COUNT, TO_WAREHOUSE, PRODUCTS_DATA_COLUMNS, HIDDEN_COLUMNS
 from globals import sales_df, inventory_df, sales_quantities_df, procurement_bills_df, orders_left_quantities, \
-    procurement_df, bills_df, inventory_by_date_df, products_availability_df, products_family_df
+    bills_df, inventory_by_date_df, products_availability_df, products_family_df, inventory_movements_df
 
 
 def parse_contents(contents, filename):
@@ -70,6 +72,7 @@ def get_last_7_dates():
     return [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7, -1, -1)]
 
 
+
 def get_overview_view():
     return html.Div(
         children=[
@@ -79,14 +82,14 @@ def get_overview_view():
                     dcc.DatePickerRange(
                         id='date-picker-range-1',
                         start_date='2024-01-01',
-                        end_date='2024-12-31',
+                        end_date=datetime.today().strftime('%Y-%m-%d'),
                         display_format='DD-MM-YYYY',
                         style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
                                "alignItems": "center"}
                         # Centers the DatePickerRange and adds space
                     ),
                     html.Div(id='general-date-picker-range')
-                ], width=4,
+                ], width=3,
                     style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
                            "alignItems": "center"}),
 
@@ -102,30 +105,63 @@ def get_overview_view():
                         # Centers the DatePickerRange and adds space
                     ),
                     html.Div(id='examination-date-picker-range')
-                ], width=4,
+                ], width=3,
                     style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
                            "alignItems": "center"}),
                 dbc.Col([
-                    html.Label("בחר משפחה", className="text-center"),
+                    html.Label("בחר משפחה", className="text-center", style={"display": "flex", "flexDirection": "column",
+                           "alignItems": "center"}),
                     dcc.Dropdown(
                         id='family-dropdown',
                         options=[{'label': family, 'value': family} for family in
-                                 products_family_df[FAMILY_NAME].unique()] + [
-                                    {'label': 'הכל', 'value': 'all'}],
-                        multi=False,
-                        value='all',
-                        style={"padding-top": "1%", "alignItems": "center"}
-                    )], width=4,
+                                 products_family_df[FAMILY_NAME].unique()],
+                        multi=True,
+                        value=['ציריות'],
+                        style={"padding-top": "1%",
+                               "alignItems": "center"}
+                    )], width=3,
+                    style={"padding-top": "1%",
+                           "alignItems": "center"}),
+                dbc.Col([
+                    html.Label("בחר ספק", className="text-center", style={"display": "flex", "flexDirection": "column",
+                           "alignItems": "center"}),
+                    dcc.Dropdown(
+                        id='supplier-dropdown',
+                        options=[{'label': supplier, 'value': supplier} for supplier in
+                                 SUPPLIERS.keys()],
+                        multi=True,
+                        value=[list(SUPPLIERS.keys())[0]],
+                        style={"padding-top": "1%",
+                               "alignItems": "center"}
+                    )], width=3,
                     style={"padding-top": "1%",
                            "alignItems": "center"})
             ]),
-            html.Div(id='data-table-container', style={"padding-top": "1%",
-                                                       "alignItems": "center"}),
+            dcc.Checklist(
+                id="toggle-columns",
+                options=[{"label": " תצוגה מלאה ", "value": "show"}],
+                value=[],
+                style={"padding-top": "1%", "padding-bottom": "1%"}
+            ),
+
+            html.Div(
+                id='data-table-container',
+                style={"padding-top": "1%", "alignItems": "center"},
+            ),
+
+            # html.Div(id='data-table-container', style={"padding-top": "1%",
+            #                                            "alignItems": "center"}),
+
             html.Div([
                 dbc.Button("Download Excel", id="download-button", n_clicks=0),
                 dcc.Download(id="download-dataframe-xlsx")
-            ])
+            ]),
+            # html.Br(),
+            # dbc.Row([
+            #     dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
+            # ], justify='center')
         ])
+
     #     dbc.Row([
     #         dbc.Col(dcc.Graph(id='sales-by-agent'), width=12),
     #     ], justify='center'),
@@ -176,54 +212,54 @@ def get_overview_view():
     #         dbc.Col(dbc.Card(dbc.CardBody(get_best_customers())), width=6),
     #         dbc.Col(dbc.Card(dbc.CardBody(get_best_agents())), width=6),
     #     ], justify='center'),
-    #     html.Br(),
-    #     dbc.Row([
-    #         dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
-    #     ], justify='center'),
+
     #     html.Br()
     # ]))
 
 
 def get_dying_products_by_n_orders(n_orders_last_year: int):
-    all_sales_by_product = sales_df.groupby(PRODUCT_ID)[QUANTITY].sum()
+    all_sales_by_product = sales_df.groupby([PRODUCT_ID, PRODUCT_NAME])[QUANTITY].sum()
     dead_products_stats = all_sales_by_product[all_sales_by_product <= n_orders_last_year]
-    dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_2_YEARS}, axis=1)
-    products_inventory = inventory_df[[PRODUCT_ID, PRODUCT_NAME, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
-                                                                                   axis=1)
+    dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_1_YEARS}, axis=1)
+    products_inventory = inventory_df[[PRODUCT_ID, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
+                                                                     axis=1)
 
     dead_products_with_inventory = pd.merge(dead_products_stats, products_inventory,
                                             how='inner', on=PRODUCT_ID)
 
     dead_products_with_inventory_larger_than_zero = pd.merge(dead_products_stats, products_inventory[
-        products_inventory[INVENTORY_QUANTITY] > 0],
+        products_inventory[INVENTORY_QUANTITY] > 10],
                                                              how='inner', on=PRODUCT_ID)
 
-    products_procurement = procurement_df.rename({QUANTITY: QUANTITY_PROCUREMENT, SUM: SUM_PROCUREMENT}, axis=1)
-    products_procurement = products_procurement[products_procurement['סטטוס שורת הזמנת רכש'].isna()]
-    unique_products_procurement = products_procurement.groupby([PRODUCT_ID, PRODUCT_NAME]).sum()[
-        [SUM_PROCUREMENT, QUANTITY_PROCUREMENT]].reset_index()
+    products_procurement = procurement_bills_df.rename({QUANTITY: QUANTITY_PROCUREMENT, SUM: SUM_PROCUREMENT},
+                                                       axis=1)
+    # products_procurement = products_procurement[products_procurement['סטטוס שורת הזמנת רכש'].isna()]
+    unique_products_procurement = products_procurement.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
+        SUM_PROCUREMENT: 'sum',
+        QUANTITY_PROCUREMENT: 'sum',
+        DATE: 'max'})[[SUM_PROCUREMENT, QUANTITY_PROCUREMENT, DATE]].reset_index()
 
     dead_products_with_inventory_and_procurement = pd.merge(dead_products_with_inventory_larger_than_zero,
                                                             unique_products_procurement[
                                                                 [PRODUCT_ID, PRODUCT_NAME, SUM_PROCUREMENT,
-                                                                 QUANTITY_PROCUREMENT]], how='left',
+                                                                 QUANTITY_PROCUREMENT, DATE]], how='inner',
                                                             on=[PRODUCT_ID, PRODUCT_NAME])
     dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]] = \
         dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]].fillna(0)
     dead_products_stats = pd.merge(dead_products_with_inventory, products_procurement[
-        [PRODUCT_ID, PRODUCT_NAME, ORDER_DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
+        [PRODUCT_ID, PRODUCT_NAME, DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
                                    on=PRODUCT_ID)
 
     return dead_products_with_inventory_and_procurement, dead_products_stats
 
 
 def get_dying_products_view():
-    dead_products_with_inventory_and_procurement, _ = get_dying_products_by_n_orders(0)
+    dead_products_with_inventory_and_procurement, _ = get_dying_products_by_n_orders(5)
     dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
                                                                              ascending=False)[:10]
     dead_products = dead_products.rename({QUANTITY_PROCUREMENT: 'כמות הזמנות ספק פתוחות'}, axis=1)
     dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
-                                       value_vars=[TOTAL_SALES_2_YEARS, INVENTORY_QUANTITY,
+                                       value_vars=[TOTAL_SALES_1_YEARS, INVENTORY_QUANTITY,
                                                    'כמות הזמנות ספק פתוחות'],
                                        var_name='Feature', value_name='Value')
 
@@ -332,7 +368,8 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
     updated_products_data = pd.merge(uploaded_products_df,
                                      sales_quantities_df, on=PRODUCT_ID,
                                      how='left')
-    updated_products_data = pd.merge(updated_products_data, orders_left_quantities[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
+    updated_products_data = pd.merge(updated_products_data,
+                                     orders_left_quantities[[ORDERS_LEFT_TO_SUPPLY, PRODUCT_ID]],
                                      on=PRODUCT_ID, how='left')
 
     updated_products_data = pd.merge(updated_products_data, inventory_by_warehouse, on=PRODUCT_ID, how='left')
@@ -343,7 +380,8 @@ def get_updated_products_data(uploaded_products_df: pd.DataFrame):
 
     columns = [PRODUCT_ID, PRODUCT_NAME, MANUFACTURER, STATUS, INVENTORY, PROCUREMENT_ORDERS, ON_THE_WAY,
                SALES_ALL_MONTHS,
-               SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE,
+               SALES_6_MONTHS, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, SALES_2_MONTH_BEFORE,
+               SALES_3_MONTH_BEFORE,
                LAST_PRICE, DAMAGED_INVENTORY]
     return updated_products_data[columns]
 
@@ -401,11 +439,142 @@ def _add_family_column(products_data: pd.DataFrame):
     return pd.merge(products_data, products_family_df[[PRODUCT_ID, FAMILY_NAME]], on=PRODUCT_ID,
                     how='left')
 
+    #
+    # def _calculate_additional_movements(product_inventory_movements: pd.DataFrame):
+    #     total_movement = 0
+    #     explanation = []
+    #
+    #     return_from_client = product_inventory_movements.loc[
+    #         product_inventory_movements[MOVEMENT_TYPE] == RETURN_FROM_CLIENT, MOVEMENTS_COUNT].sum()
+    #     total_movement += return_from_client
+    #     if return_from_client != 0:
+    #         explanation.append(f"{RETURN_FROM_CLIENT}: +{return_from_client}")
+    #
+    #     inventory_count = product_inventory_movements.loc[
+    #         (product_inventory_movements[MOVEMENT_TYPE] == INVENTORY_COUNT) & (
+    #                 product_inventory_movements[TO_WAREHOUSE] == MAIN_WAREHOUSE),
+    #         MOVEMENTS_COUNT
+    #     ].sum()
+    #     total_movement += inventory_count
+    #     if inventory_count != 0:
+    #         explanation.append(f"{INVENTORY_COUNT}: +{inventory_count}")
+    #
+    #     warehouse_transfer = product_inventory_movements.loc[
+    #         (product_inventory_movements[MOVEMENT_TYPE] == WAREHOUSE_TRANSFER) & (
+    #                 product_inventory_movements[TO_WAREHOUSE] == MAIN_WAREHOUSE),
+    #         MOVEMENTS_COUNT
+    #     ].sum()
+    #     warehouse_transfer -= product_inventory_movements.loc[
+    #         (product_inventory_movements[MOVEMENT_TYPE] == WAREHOUSE_TRANSFER) & (
+    #                 product_inventory_movements[FROM_WAREHOUSE] == MAIN_WAREHOUSE),
+    #         MOVEMENTS_COUNT
+    #     ].sum()
+    #     total_movement += warehouse_transfer
+    #     if warehouse_transfer != 0:
+    #         explanation.append(f"{WAREHOUSE_TRANSFER}: +{warehouse_transfer}")
+    #
+    #     return_to_supplier = product_inventory_movements.loc[
+    #         product_inventory_movements[MOVEMENT_TYPE] == RETURN_TO_SUPPLIER, MOVEMENTS_COUNT].sum()
+    #     total_movement -= return_to_supplier
+    #     if return_to_supplier != 0:
+    #         explanation.append(f"{RETURN_TO_SUPPLIER}: -{return_to_supplier}")
+    #
+    #     receive_from_supplier = product_inventory_movements.loc[
+    #         product_inventory_movements[MOVEMENT_TYPE] == RECEIVE_FROM_SUPPLIER, MOVEMENTS_COUNT].sum()
+    #     total_movement += receive_from_supplier
+    #     if receive_from_supplier != 0:
+    #         explanation.append(f"{RECEIVE_FROM_SUPPLIER}: -{receive_from_supplier}")
+    #
+    #     return pd.Series({
+    #         "additional_movements": total_movement,
+    #         "explanation": ", ".join(explanation)
+    #     })
 
-def get_products_data(absolute_start_date: datetime,
+
+def calculate_additional_movements():
+    grouped_sums = inventory_movements_df.groupby([PRODUCT_ID, MOVEMENT_TYPE])[MOVEMENTS_COUNT].sum().unstack(
+        fill_value=0).drop(INVENTORY_COUNT, axis=1)
+
+    to_main = inventory_movements_df.loc[
+        (inventory_movements_df[TO_WAREHOUSE] == MAIN_WAREHOUSE) &
+        (inventory_movements_df[MOVEMENT_TYPE] == WAREHOUSE_TRANSFER)
+        ].groupby(PRODUCT_ID)[MOVEMENTS_COUNT].sum()
+
+    grouped_sums = grouped_sums.merge(
+        to_main, on=PRODUCT_ID, how='left').rename({MOVEMENTS_COUNT: TO_WAREHOUSE}, axis=1)
+
+    from_main = inventory_movements_df.loc[
+        (inventory_movements_df[FROM_WAREHOUSE] == MAIN_WAREHOUSE) &
+        (inventory_movements_df[MOVEMENT_TYPE] == WAREHOUSE_TRANSFER)
+        ].groupby(PRODUCT_ID)[MOVEMENTS_COUNT].sum()
+
+    grouped_sums = grouped_sums.merge(
+        from_main, on=PRODUCT_ID, how='left').rename({MOVEMENTS_COUNT: FROM_WAREHOUSE}, axis=1).fillna(0)
+
+    inventory_count = inventory_movements_df.loc[
+        (inventory_movements_df[TO_WAREHOUSE] == MAIN_WAREHOUSE) &
+        (inventory_movements_df[MOVEMENT_TYPE] == INVENTORY_COUNT)
+        ].groupby(PRODUCT_ID)[MOVEMENTS_COUNT].sum()
+
+    grouped_sums = grouped_sums.merge(
+        inventory_count, on=PRODUCT_ID, how='left').rename({MOVEMENTS_COUNT: INVENTORY_COUNT}, axis=1).fillna(0)
+
+    grouped_sums[WAREHOUSE_TRANSFER] = grouped_sums[TO_WAREHOUSE] - grouped_sums[FROM_WAREHOUSE]
+    grouped_sums[INVENTORY_COUNT] = inventory_count.fillna(0)
+
+    grouped_sums['תנועות נוספות'] = (
+            grouped_sums.get(RETURN_FROM_CLIENT, 0)
+            + grouped_sums.get(INVENTORY_COUNT, 0)
+            + grouped_sums.get(WAREHOUSE_TRANSFER, 0)
+            - grouped_sums.get(RETURN_TO_SUPPLIER, 0)
+            + grouped_sums.get(RECEIVE_FROM_SUPPLIER, 0)
+    )
+
+    def build_explanation(row):
+        explanations = []
+        if row[RETURN_FROM_CLIENT] != 0:
+            explanations.append(f"{RETURN_FROM_CLIENT}: +{row[RETURN_FROM_CLIENT]}")
+        if row[INVENTORY_COUNT] != 0:
+            explanations.append(f"{INVENTORY_COUNT}: +{row[INVENTORY_COUNT]}")
+        if row[TO_WAREHOUSE] != 0:
+            explanations.append(f"{WAREHOUSE_TRANSFER}: +{row[TO_WAREHOUSE]}")
+        if row[FROM_WAREHOUSE] != 0:
+            explanations.append(f"{WAREHOUSE_TRANSFER}: -{row[FROM_WAREHOUSE]}")
+        if row[RETURN_TO_SUPPLIER] != 0:
+            explanations.append(f"{RETURN_TO_SUPPLIER}: -{row[RETURN_TO_SUPPLIER]}")
+        if row[RECEIVE_FROM_SUPPLIER] != 0:
+            explanations.append(f"{RECEIVE_FROM_SUPPLIER}: +{row[RECEIVE_FROM_SUPPLIER]}")
+        return ", ".join(explanations)
+
+    # total_movement = total_movement.reset_index().rename({0: 'תנועות נוספות'}, axis=1)
+    # # total_movement['explanation'] = grouped_sums.apply(build_explanation, axis=1)
+    return grouped_sums
+
+
+def _add_inventory_movements_columns(products_data: pd.DataFrame):
+    results = calculate_additional_movements()
+    print(results.head())
+    products_data = pd.merge(products_data, results, on=PRODUCT_ID, how='left').fillna(0)
+    products_data['בדיקת תקינות'] = products_data[OPENING_QUANTITY] - products_data[GENERAL_SALES] + products_data[
+        'תנועות נוספות'] == products_data[INVENTORY]
+    return products_data
+
+
+def get_products_data(products_data: pd.DataFrame,
+                      absolute_start_date: datetime,
                       absolute_end_date: datetime,
-                      examined_start_date: datetime, examined_end_date: datetime):
-    products_data = _add_general_sales_column(products_availability_df, sales_df, absolute_start_date,
+                      examined_start_date: datetime, examined_end_date: datetime,
+                      selected_suppliers: List[str],
+                      selected_families: List[str]):
+    products_data = _add_family_column(products_data)
+
+    if len(selected_families) != 0:
+        products_data = products_data[products_data[FAMILY_NAME].isin(selected_families)]
+
+    if len(selected_suppliers) != 0:
+        products_data = products_data[products_data[PRODUCT_ID].str.endswith(tuple(selected_suppliers))]
+
+    products_data = _add_general_sales_column(products_data, sales_df, absolute_start_date,
                                               absolute_end_date)
 
     products_data = _add_examined_sales_column(products_data, sales_df, examined_start_date, examined_end_date)
@@ -417,7 +586,7 @@ def get_products_data(absolute_start_date: datetime,
 
     products_data = _add_inventory_column(products_data)
 
-    products_data = _add_family_column(products_data)
+    products_data = _add_inventory_movements_columns(products_data)
     # updated_products_data = pd.merge(updated_products_data, on_the_way_orders, on=PRODUCT_ID, how='left')
 
     # on_the_way_orders = procurement_bills_df[
@@ -431,10 +600,7 @@ def get_products_data(absolute_start_date: datetime,
 
     products_data = products_data.rename({PROCUREMENT_ORDERS: ORDER_QUANTITY}, axis=1)
 
-    columns = [PRODUCT_ID, PRODUCT_NAME, FAMILY_NAME, OPENING_QUANTITY, GENERAL_BUYS, GENERAL_SALES, EXAMINED_SALES,
-               INVENTORY,
-               LAST_PRICE,
-               ORDER_QUANTITY][::-1]
+    columns = PRODUCTS_DATA_COLUMNS
 
     return products_data[columns].sort_values([FAMILY_NAME, PRODUCT_NAME]).fillna(0)
 
@@ -555,27 +721,35 @@ def register_sales_and_revenue_callbacks(app):
          Input('date-picker-range-2', 'start_date'),
          Input('date-picker-range-2', 'end_date'),
          Input('family-dropdown', 'value'),
-         Input('download-button', 'n_clicks')],
+         Input('supplier-dropdown', 'value'),
+         Input('download-button', 'n_clicks'),
+         Input('toggle-columns', 'value')
+         ]
     )
     def update_table_and_download(absolute_start_date, absolute_end_date, examined_start_date, examined_end_date,
-                                  selected_family, n_clicks):
+                                  selected_families, selected_suppliers, n_clicks, toggle_columns
+                                  ):
         absolute_start_date = datetime.strptime(absolute_start_date, '%Y-%m-%d')
         absolute_end_date = datetime.strptime(absolute_end_date, '%Y-%m-%d')
         examined_start_date = datetime.strptime(examined_start_date, '%Y-%m-%d')
         examined_end_date = datetime.strptime(examined_end_date, '%Y-%m-%d')
-        products_data = get_products_data(absolute_start_date, absolute_end_date, examined_start_date,
-                                          examined_end_date)
+        products_data = products_availability_df
 
-        if selected_family != ALL:
-            products_data = products_data[products_data[FAMILY_NAME] == selected_family]
+        products_data = get_products_data(products_data, absolute_start_date, absolute_end_date,
+                                          examined_start_date,
+                                          examined_end_date, selected_suppliers, selected_families)
+
+        if "show" in toggle_columns:
+            visible_columns = [{"name": col, "id": col} for col in products_data.columns]
+        else:
+            visible_columns = [{"name": col, "id": col} for col in products_data.columns[6:]]
+
         data_table = dash_table.DataTable(
             id='data-table',
-            columns=[{"name": col, "id": col} for col in products_data.columns],
+            columns=visible_columns,
             data=products_data.to_dict('records'),
             style_table={
                 'height': '300px', 'overflowY': 'auto',
-                # 'width': '80%',
-                # 'margin': '0 auto',
                 'font-family': 'Arial, sans-serif'
             },
             style_cell={
@@ -599,21 +773,8 @@ def register_sales_and_revenue_callbacks(app):
             # Encode the buffer to base64 for download
             encoded_excel = base64.b64encode(buffer.read()).decode()
 
-            return data_table, dcc.send_bytes(buffer.getvalue(), "dataframe.xlsx")
-            #
-            # output = io.BytesIO()
-            # with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            #     products_data.to_excel(writer, index=False)
-            # output.seek(0)
-            #
-            # return data_table, send_bytes(lambda: output.getvalue(), "dataframe.xlsx")
-
-        # if n_clicks > 0:
-        #     output = io.BytesIO()
-        #     products_data.to_excel(output, index=False)
-        #     output.seek(0)
-        #
-        #     return data_table, dict(content=base64.b64encode(output.getvalue()).decode(), filename="products_availability.xlsx")
+            return data_table, dcc.send_bytes(buffer.getvalue(),
+                                                                                    "dataframe.xlsx")
 
         return data_table, None
 

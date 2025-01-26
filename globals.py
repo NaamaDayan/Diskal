@@ -5,8 +5,9 @@ import pandas as pd
 
 from constants import TOTAL_REVENUE, SUM, DATE, ORDER_DATE, MONTH, YEAR, PRODUCT_ID, \
     YEAR_MONTH, SALES_ALL_MONTHS, SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, QUANTITY, \
-    ORDERS_REMAINING
+    ORDERS_REMAINING, SALES_3_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_1_MONTH_BEFORE, CURRENT_MONTH_SALES
 from gmail_automation import authenticate_gmail, download_attachments, was_downloaded_today, update_last_download_date
+from validations import compare_sales_data
 
 
 def get_previous_12_months_df_by_product(product_ids: List[str]):
@@ -38,32 +39,50 @@ def get_product_quantities_over_months(df: pd.DataFrame, column_prefix: str = ' 
 def pre_process_sales_df(sales_df: pd.DataFrame):
     sales_df[TOTAL_REVENUE] = pd.to_numeric(sales_df[TOTAL_REVENUE], errors='coerce')
     sales_df[SUM] = pd.to_numeric(sales_df[SUM], errors='coerce')
-
-    try:
-        sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%y')
-    except:
-        if 'old_date' in sales_df.columns:
-            sales_df.drop('old_date', axis=1, inplace=True)
-        sales_df = sales_df.rename({DATE: 'old_date'}, axis=1)
-        print (sales_df['old_date'].head())
-        sales_df[DATE] = pd.to_datetime(sales_df['old_date'], format='%Y-%d-%m', errors='coerce')
-        sales_df[DATE] = sales_df[DATE].fillna(pd.to_datetime(sales_df['old_date'], format='%d/%m/%Y', errors='coerce'))
+    print(sales_df.shape)
+    sales_df[DATE] = sales_df[DATE].apply(parse_date)
+    #
+    # try:
+    #     sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%y')
+    # except:
+    #     sales_df[DATE] = pd.to_datetime(sales_df[DATE], format='%d/%m/%Y')
 
     sales_df[MONTH] = sales_df[DATE].dt.month
     sales_df[YEAR] = sales_df[DATE].dt.year
-    print ("before", len(sales_df))
+    print("before", len(sales_df))
     sales_df = sales_df[sales_df[DATE].notna()]
     print("after", len(sales_df))
     return sales_df
 
 
+def pre_process_movements_df(movements_df: pd.DataFrame):
+    movements_df[DATE] = movements_df[DATE].apply(parse_date)
+    #
+    # try:
+    #     movements_df[DATE] = pd.to_datetime(movements_df[DATE], format='%d/%m/%y')
+    # except:
+    #     movements_df[DATE] = pd.to_datetime(movements_df[DATE], format='%d/%m/%Y')
+    #
+    movements_df = movements_df[movements_df[DATE].notna()]
+    return movements_df
+
+
+def parse_date(date_str: str):
+    for fmt in ('%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d'):
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except ValueError:
+            continue
+    print("Ecxeption!!!", date_str)
+    return None
+
+
 def pre_process_procurement_bills_df(procurement_bills_df: pd.DataFrame):
-    try:
-        procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
-    except:
-        procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%y',
-                                                           errors='coerce')
-    procurement_bills_df = procurement_bills_df[procurement_bills_df[DATE] > datetime(2016, 1, 1)]
+    procurement_bills_df[DATE] = procurement_bills_df[DATE].apply(parse_date)
+    # try:
+    #     procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%Y')
+    # except:
+    #     procurement_bills_df[DATE] = pd.to_datetime(procurement_bills_df[DATE], format='%d/%m/%y')
     procurement_bills_df[MONTH] = procurement_bills_df[DATE].dt.month
     procurement_bills_df[YEAR] = procurement_bills_df[DATE].dt.year
     procurement_bills_df[YEAR_MONTH] = procurement_bills_df[YEAR].astype(str) + '-' + procurement_bills_df[
@@ -84,15 +103,15 @@ def update_inventory_by_date(recent_inventory_by_date_df: pd.DataFrame):
     current_month = str(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0))
     if current_month not in inventory_by_date.columns:
         recent_inventory_by_date_df = \
-        recent_inventory_by_date_df.rename({'מק"ט': PRODUCT_ID, 'יתרה': current_month}, axis=1)[
-            [PRODUCT_ID, current_month]]
+            recent_inventory_by_date_df.rename({'מק"ט': PRODUCT_ID, 'יתרה': current_month}, axis=1)[
+                [PRODUCT_ID, current_month]]
         inventory_by_date = pd.merge(inventory_by_date, recent_inventory_by_date_df, on=PRODUCT_ID)
         inventory_by_date.to_csv('data/inventory_by_date.csv', index=False)
 
 
 if not was_downloaded_today():
     service = authenticate_gmail()
-    #
+
     products_availability_df = download_attachments(service, subject='זמינות מוצרים')
     products_availability_df.to_csv('data/products_availability.csv', index=False)
     print("after products availability")
@@ -105,17 +124,23 @@ if not was_downloaded_today():
     update_base_data('data/נעמה חשבונית רכש.csv', recent_procurement_bills_df, pre_process_procurement_bills_df)
     print("after bills availability")
 
+    recent_sales_df = download_attachments(service, subject='נעמה תונועות מלאי')
+    update_base_data('data/נעמה תנועות מלאי.csv', recent_sales_df, pre_process_movements_df)
+
     recent_sales_df = download_attachments(service, subject='נעמה מכירות')
     update_base_data('data/נעמה מכירות.csv', recent_sales_df, pre_process_sales_df)
-    print("after inventory availability")
 
-    # recent_inventory_by_date_df = download_attachments(service, subject='סה"כ מלאי לתאריך לפי מוצר')
-    # update_inventory_by_date(recent_inventory_by_date_df)
+    recent_inventory_by_date_df = download_attachments(service, subject='סה"כ מלאי לתאריך לפי מוצר')
+    update_inventory_by_date(recent_inventory_by_date_df)
 
     update_last_download_date()
 
 print("already downloaded")
+
 inventory_df = pd.read_csv('data/נעמה מלאי נוכחי.csv')
+inventory_movements_df = pd.read_csv('data/נעמה תנועות מלאי.csv')
+
+full_products_availability_df = pd.read_csv('data/products_availability.csv')
 products_availability_df = pd.read_csv('data/products_availability.csv')
 sales_df = pre_process_sales_df(pd.read_csv('data/נעמה מכירות.csv'))
 procurement_bills_df = pre_process_procurement_bills_df(pd.read_csv('data/נעמה חשבונית רכש.csv'))
@@ -163,3 +188,5 @@ orders_left_quantities = get_product_quantities_over_months(orders_df, column_pr
 orders_left_quantities[ORDERS_LEFT_TO_SUPPLY] = orders_left_quantities[sorted(orders_left_quantities.columns)[-3:]].sum(
     axis=1)
 orders_left_quantities = orders_left_quantities.reset_index()
+
+# compare_sales_data(sales_df, full_products_availability_df)
