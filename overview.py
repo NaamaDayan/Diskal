@@ -2,7 +2,7 @@ import base64
 import io
 from datetime import datetime, timedelta
 from typing import List
-
+import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -764,7 +764,10 @@ def register_sales_and_revenue_callbacks(app):
             },
         )
 
-        if n_clicks > 0:
+        ctx = dash.callback_context
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+        if trigger_id == 'download-button' and n_clicks > 0:
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
                 products_data.to_excel(writer, index=False, sheet_name="Sheet1")
@@ -773,10 +776,12 @@ def register_sales_and_revenue_callbacks(app):
             # Encode the buffer to base64 for download
             encoded_excel = base64.b64encode(buffer.read()).decode()
 
-            return data_table, dcc.send_bytes(buffer.getvalue(),
-                                                                                    "dataframe.xlsx")
+            return data_table, dcc.send_bytes(buffer.getvalue(), "products_data.xlsx")
 
         return data_table, None
+
+
+
 
     # @app.callback(
     #     Output("download-excel", "data"),
