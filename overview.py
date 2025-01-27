@@ -20,7 +20,7 @@ from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL
     SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_1_YEARS, ORDER_QUANTITY, \
     GENERAL_SALES, EXAMINED_SALES, GENERAL_BUYS, OPENING_QUANTITY, FAMILY_NAME, SUPPLIERS, MOVEMENT_TYPE, \
     RETURN_TO_SUPPLIER, RETURN_FROM_CLIENT, WAREHOUSE_TRANSFER, INVENTORY_COUNT, RECEIVE_FROM_SUPPLIER, MAIN_WAREHOUSE, \
-    FROM_WAREHOUSE, MOVEMENTS_COUNT, TO_WAREHOUSE, PRODUCTS_DATA_COLUMNS, HIDDEN_COLUMNS
+    FROM_WAREHOUSE, MOVEMENTS_COUNT, TO_WAREHOUSE, PRODUCTS_DATA_COLUMNS, UNIT_COST, COST
 from globals import sales_df, inventory_df, sales_quantities_df, procurement_bills_df, orders_left_quantities, \
     bills_df, inventory_by_date_df, products_availability_df, products_family_df, inventory_movements_df
 
@@ -72,7 +72,6 @@ def get_last_7_dates():
     return [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7, -1, -1)]
 
 
-
 def get_overview_view():
     return html.Div(
         children=[
@@ -109,8 +108,9 @@ def get_overview_view():
                     style={"padding-top": "1%", "display": "flex", "flexDirection": "column",
                            "alignItems": "center"}),
                 dbc.Col([
-                    html.Label("בחר משפחה", className="text-center", style={"display": "flex", "flexDirection": "column",
-                           "alignItems": "center"}),
+                    html.Label("בחר משפחה", className="text-center",
+                               style={"display": "flex", "flexDirection": "column",
+                                      "alignItems": "center"}),
                     dcc.Dropdown(
                         id='family-dropdown',
                         options=[{'label': family, 'value': family} for family in
@@ -124,7 +124,7 @@ def get_overview_view():
                            "alignItems": "center"}),
                 dbc.Col([
                     html.Label("בחר ספק", className="text-center", style={"display": "flex", "flexDirection": "column",
-                           "alignItems": "center"}),
+                                                                          "alignItems": "center"}),
                     dcc.Dropdown(
                         id='supplier-dropdown',
                         options=[{'label': supplier, 'value': supplier} for supplier in
@@ -156,10 +156,10 @@ def get_overview_view():
                 dbc.Button("Download Excel", id="download-button", n_clicks=0),
                 dcc.Download(id="download-dataframe-xlsx")
             ]),
-            # html.Br(),
-            # dbc.Row([
-            #     dbc.Col(dbc.Card(dbc.CardBody(get_dying_products_view())), width=12),
-            # ], justify='center')
+            html.Br(),
+            dbc.Row([
+                dbc.Col(get_dying_products_view(), width=12),
+            ], justify='center')
         ])
 
     #     dbc.Row([
@@ -218,8 +218,11 @@ def get_overview_view():
 
 
 def get_dying_products_by_n_orders(n_orders_last_year: int):
-    all_sales_by_product = sales_df.groupby([PRODUCT_ID, PRODUCT_NAME])[QUANTITY].sum()
-    dead_products_stats = all_sales_by_product[all_sales_by_product <= n_orders_last_year]
+    all_sales_by_product = sales_df.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
+        UNIT_COST: 'mean',
+        COST: 'mean',
+        QUANTITY: 'sum'})[[UNIT_COST, COST, QUANTITY]].reset_index()
+    dead_products_stats = all_sales_by_product[all_sales_by_product[QUANTITY] <= n_orders_last_year]
     dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_1_YEARS}, axis=1)
     products_inventory = inventory_df[[PRODUCT_ID, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
                                                                      axis=1)
@@ -250,29 +253,36 @@ def get_dying_products_by_n_orders(n_orders_last_year: int):
         [PRODUCT_ID, PRODUCT_NAME, DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
                                    on=PRODUCT_ID)
 
+    dead_products_with_inventory_and_procurement.drop('index', axis=1, inplace=True)
+    dead_products_with_inventory_and_procurement = dead_products_with_inventory_and_procurement[
+        dead_products_with_inventory_and_procurement.columns[::-1]]
     return dead_products_with_inventory_and_procurement, dead_products_stats
 
 
 def get_dying_products_view():
     dead_products_with_inventory_and_procurement, _ = get_dying_products_by_n_orders(5)
     dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
-                                                                             ascending=False)[:10]
-    dead_products = dead_products.rename({QUANTITY_PROCUREMENT: 'כמות הזמנות ספק פתוחות'}, axis=1)
-    dead_products = dead_products.melt(id_vars=PRODUCT_NAME,
-                                       value_vars=[TOTAL_SALES_1_YEARS, INVENTORY_QUANTITY,
-                                                   'כמות הזמנות ספק פתוחות'],
-                                       var_name='Feature', value_name='Value')
+                                                                             ascending=False)
+    data_table = dash_table.DataTable(
+        id='data-table',
+        data=dead_products.to_dict('records'),
+        style_table={
+            'height': '300px', 'overflowY': 'auto',
+            'font-family': 'Arial, sans-serif'
+        },
+        style_cell={
+            'textAlign': 'center',
+            'font-family': 'Arial, sans-serif',
+        },
+        style_header={
+            'backgroundColor': 'lightblue',
+            'fontWeight': 'bold',
+            'font-family': 'Arial, sans-serif',
+            'textAlign': 'center'
+        },
+    )
 
-    fig = px.bar(dead_products, x=PRODUCT_NAME, y='Value', color='Feature', barmode='group',
-                 title='מוצרים מתים (לא נמכרו בשנתיים האחרונות)')
-    fig.update_layout(xaxis_title='מוצר', yaxis_title='כמות', template='plotly_dark')
-
-    return html.Div([
-        # dcc.Store(id="dying-products-data"),
-        # dbc.Button("Download Excel File", id="download-button", color="primary"),
-        # dcc.Download(id="download-excel"),
-        dcc.Graph(id='dying-products-graph', figure=fig)
-    ])
+    return html.Div(data_table)
 
 
 def get_best_customers():
@@ -779,9 +789,6 @@ def register_sales_and_revenue_callbacks(app):
             return data_table, dcc.send_bytes(buffer.getvalue(), "products_data.xlsx")
 
         return data_table, None
-
-
-
 
     # @app.callback(
     #     Output("download-excel", "data"),
