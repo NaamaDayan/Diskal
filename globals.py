@@ -224,5 +224,5 @@ orders_left_quantities[ORDERS_LEFT_TO_SUPPLY] = orders_left_quantities[sorted(or
     axis=1)
 orders_left_quantities = orders_left_quantities.reset_index()
 
-dead_products = get_dying_products_by_n_orders(5).iloc[:, ::-1]
+dead_products = get_dying_products_by_n_orders(5)
 # compare_sales_data(sales_df, full_products_availability_df)
