@@ -2,6 +2,7 @@ import base64
 import io
 from datetime import datetime, timedelta
 from typing import List
+
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -13,16 +14,15 @@ from dash.dependencies import Input, Output, State
 from openpyxl import load_workbook
 
 from constants import CUSTOMER_NAME, PRODUCT_NAME, DATE, TOTAL_REVENUE, SUM, ALL, \
-    AGENT_NAME, PRODUCT_ID, MONTH, QUANTITY, INVENTORY_QUANTITY, QUANTITY_PROCUREMENT, SUM_PROCUREMENT, \
-    SALES_ALL_MONTHS, \
+    AGENT_NAME, PRODUCT_ID, MONTH, QUANTITY, SALES_ALL_MONTHS, \
     SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, ON_THE_WAY_STATUS, ORDER_STATUS, ON_THE_WAY, MANUFACTURER, INVENTORY, \
     PROCUREMENT_ORDERS, DAMAGED_INVENTORY, CURRENT_MONTH_SALES, SALES_1_MONTH_BEFORE, \
-    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, TOTAL_SALES_1_YEARS, ORDER_QUANTITY, \
+    SALES_2_MONTH_BEFORE, SALES_3_MONTH_BEFORE, STATUS, LAST_PRICE, MAIN_INVENTORY, ORDER_QUANTITY, \
     GENERAL_SALES, EXAMINED_SALES, GENERAL_BUYS, OPENING_QUANTITY, FAMILY_NAME, SUPPLIERS, MOVEMENT_TYPE, \
     RETURN_TO_SUPPLIER, RETURN_FROM_CLIENT, WAREHOUSE_TRANSFER, INVENTORY_COUNT, RECEIVE_FROM_SUPPLIER, MAIN_WAREHOUSE, \
-    FROM_WAREHOUSE, MOVEMENTS_COUNT, TO_WAREHOUSE, PRODUCTS_DATA_COLUMNS, UNIT_COST, COST
+    FROM_WAREHOUSE, MOVEMENTS_COUNT, TO_WAREHOUSE, PRODUCTS_DATA_COLUMNS
 from globals import sales_df, inventory_df, sales_quantities_df, procurement_bills_df, orders_left_quantities, \
-    bills_df, inventory_by_date_df, products_availability_df, products_family_df, inventory_movements_df
+    bills_df, inventory_by_date_df, products_availability_df, products_family_df, inventory_movements_df, dead_products
 
 
 def parse_contents(contents, filename):
@@ -35,6 +35,26 @@ def parse_contents(contents, filename):
         return None
 
     return df
+
+
+def beautify_excel(writer, df: pd.DataFrame):
+    workbook = writer.book
+    worksheet = writer.sheets["Sheet1"]
+
+    worksheet.right_to_left()
+
+    center_format = workbook.add_format({'align': 'center', 'valign': 'vcenter'})
+    worksheet.set_column(0, len(df.columns) - 1, None, center_format)
+
+    border_format = workbook.add_format({'border': 1})
+    worksheet.conditional_format(
+        f"A1:{chr(64 + len(df.columns))}{len(df) + 1}",
+        {'type': 'no_blanks', 'format': border_format}
+    )
+
+    for i, column in enumerate(df.columns):
+        max_width = max(len(str(column)), *(len(str(val)) for val in df[column]))
+        worksheet.set_column(i, i, max_width + 2)
 
 
 #
@@ -159,7 +179,12 @@ def get_overview_view():
             html.Br(),
             dbc.Row([
                 dbc.Col(get_dying_products_view(), width=12),
-            ], justify='center')
+            ], justify='center'),
+            html.Br(),
+            html.Div([
+                dbc.Button("Download Excel", id="download-button-dead", n_clicks=0),
+                dcc.Download(id="download-dead-xlsx")
+            ]),
         ])
 
     #     dbc.Row([
@@ -217,54 +242,9 @@ def get_overview_view():
     # ]))
 
 
-def get_dying_products_by_n_orders(n_orders_last_year: int):
-    all_sales_by_product = sales_df.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
-        UNIT_COST: 'mean',
-        COST: 'mean',
-        QUANTITY: 'sum'})[[UNIT_COST, COST, QUANTITY]].reset_index()
-    dead_products_stats = all_sales_by_product[all_sales_by_product[QUANTITY] <= n_orders_last_year]
-    dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_1_YEARS}, axis=1)
-    products_inventory = inventory_df[[PRODUCT_ID, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
-                                                                     axis=1)
-
-    dead_products_with_inventory = pd.merge(dead_products_stats, products_inventory,
-                                            how='inner', on=PRODUCT_ID)
-
-    dead_products_with_inventory_larger_than_zero = pd.merge(dead_products_stats, products_inventory[
-        products_inventory[INVENTORY_QUANTITY] > 10],
-                                                             how='inner', on=PRODUCT_ID)
-
-    products_procurement = procurement_bills_df.rename({QUANTITY: QUANTITY_PROCUREMENT, SUM: SUM_PROCUREMENT},
-                                                       axis=1)
-    # products_procurement = products_procurement[products_procurement['סטטוס שורת הזמנת רכש'].isna()]
-    unique_products_procurement = products_procurement.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
-        SUM_PROCUREMENT: 'sum',
-        QUANTITY_PROCUREMENT: 'sum',
-        DATE: 'max'})[[SUM_PROCUREMENT, QUANTITY_PROCUREMENT, DATE]].reset_index()
-
-    dead_products_with_inventory_and_procurement = pd.merge(dead_products_with_inventory_larger_than_zero,
-                                                            unique_products_procurement[
-                                                                [PRODUCT_ID, PRODUCT_NAME, SUM_PROCUREMENT,
-                                                                 QUANTITY_PROCUREMENT, DATE]], how='inner',
-                                                            on=[PRODUCT_ID, PRODUCT_NAME])
-    dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]] = \
-        dead_products_with_inventory_and_procurement[[QUANTITY_PROCUREMENT, SUM_PROCUREMENT]].fillna(0)
-    dead_products_stats = pd.merge(dead_products_with_inventory, products_procurement[
-        [PRODUCT_ID, PRODUCT_NAME, DATE, SUM_PROCUREMENT, QUANTITY_PROCUREMENT]], how='inner',
-                                   on=PRODUCT_ID)
-
-    dead_products_with_inventory_and_procurement.drop('index', axis=1, inplace=True)
-    dead_products_with_inventory_and_procurement = dead_products_with_inventory_and_procurement[
-        dead_products_with_inventory_and_procurement.columns[::-1]]
-    return dead_products_with_inventory_and_procurement, dead_products_stats
-
-
 def get_dying_products_view():
-    dead_products_with_inventory_and_procurement, _ = get_dying_products_by_n_orders(5)
-    dead_products = dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
-                                                                             ascending=False)
     data_table = dash_table.DataTable(
-        id='data-table',
+        id='dying-products-table',
         data=dead_products.to_dict('records'),
         style_table={
             'height': '300px', 'overflowY': 'auto',
@@ -781,6 +761,8 @@ def register_sales_and_revenue_callbacks(app):
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
                 products_data.to_excel(writer, index=False, sheet_name="Sheet1")
+                beautify_excel(writer, products_data)
+
             buffer.seek(0)
 
             # Encode the buffer to base64 for download
@@ -789,6 +771,24 @@ def register_sales_and_revenue_callbacks(app):
             return data_table, dcc.send_bytes(buffer.getvalue(), "products_data.xlsx")
 
         return data_table, None
+
+    @app.callback(
+        Output('download-dead-xlsx', 'data'),
+        [Input('download-button-dead', 'n_clicks')]
+    )
+    def update_dead_products_and_download(n_clicks):
+        ctx = dash.callback_context
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+        if trigger_id == 'download-button-dead' and n_clicks > 0:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+                dead_products.to_excel(writer, index=False, sheet_name="Sheet1")
+                beautify_excel(writer, dead_products)
+            buffer.seek(0)
+            return dcc.send_bytes(buffer.getvalue(), "products_to_check.xlsx")
+
+        return None
 
     # @app.callback(
     #     Output("download-excel", "data"),

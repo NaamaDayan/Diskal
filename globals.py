@@ -5,9 +5,9 @@ import pandas as pd
 
 from constants import TOTAL_REVENUE, SUM, DATE, ORDER_DATE, MONTH, YEAR, PRODUCT_ID, \
     YEAR_MONTH, SALES_ALL_MONTHS, SALES_6_MONTHS, ORDERS_LEFT_TO_SUPPLY, QUANTITY, \
-    ORDERS_REMAINING, SALES_3_MONTH_BEFORE, SALES_2_MONTH_BEFORE, SALES_1_MONTH_BEFORE, CURRENT_MONTH_SALES
+    ORDERS_REMAINING, COST, \
+    UNIT_COST, TOTAL_SALES_1_YEARS, INVENTORY_QUANTITY, PRODUCT_NAME, QUANTITY_PROCUREMENT
 from gmail_automation import authenticate_gmail, download_attachments, was_downloaded_today, update_last_download_date
-from validations import compare_sales_data
 
 
 def get_previous_12_months_df_by_product(product_ids: List[str]):
@@ -109,6 +109,41 @@ def update_inventory_by_date(recent_inventory_by_date_df: pd.DataFrame):
         inventory_by_date.to_csv('data/inventory_by_date.csv', index=False)
 
 
+def get_dying_products_by_n_orders(n_orders_last_year: int):
+    all_sales_by_product = sales_df.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
+        UNIT_COST: 'mean',
+        COST: 'mean',
+        QUANTITY: 'sum'})[[UNIT_COST, COST, QUANTITY]].reset_index()
+    dead_products_stats = all_sales_by_product[all_sales_by_product[QUANTITY] <= n_orders_last_year]
+    dead_products_stats = dead_products_stats.reset_index().rename({QUANTITY: TOTAL_SALES_1_YEARS}, axis=1)
+    products_inventory = inventory_df[[PRODUCT_ID, QUANTITY]].rename({QUANTITY: INVENTORY_QUANTITY},
+                                                                     axis=1)
+    dead_products_with_inventory_larger_than_ten = pd.merge(dead_products_stats, products_inventory[
+        products_inventory[INVENTORY_QUANTITY] > 10],
+                                                            how='inner', on=PRODUCT_ID)
+
+    products_procurement = procurement_bills_df.rename({QUANTITY: QUANTITY_PROCUREMENT},
+                                                       axis=1)
+    # products_procurement = products_procurement[products_procurement['סטטוס שורת הזמנת רכש'].isna()]
+    unique_products_procurement = products_procurement.groupby([PRODUCT_ID, PRODUCT_NAME]).agg({
+        QUANTITY_PROCUREMENT: 'sum',
+        DATE: 'max'})[[QUANTITY_PROCUREMENT, DATE]].reset_index()
+
+    dead_products_with_inventory_and_procurement = pd.merge(dead_products_with_inventory_larger_than_ten,
+                                                            unique_products_procurement[
+                                                                [PRODUCT_ID, PRODUCT_NAME,
+                                                                 QUANTITY_PROCUREMENT, DATE]], how='inner',
+                                                            on=[PRODUCT_ID, PRODUCT_NAME])
+    dead_products_with_inventory_and_procurement[QUANTITY_PROCUREMENT].fillna(0, inplace=True)
+    dead_products_with_inventory_and_procurement.drop('index', axis=1, inplace=True)
+    dead_products_with_inventory_and_procurement = dead_products_with_inventory_and_procurement[
+        dead_products_with_inventory_and_procurement.columns[::-1]]
+
+    dead_products_with_inventory_and_procurement.sort_values(by=INVENTORY_QUANTITY,
+                                                             ascending=False, inplace=True)
+    return dead_products_with_inventory_and_procurement
+
+
 if not was_downloaded_today():
     service = authenticate_gmail()
 
@@ -189,4 +224,5 @@ orders_left_quantities[ORDERS_LEFT_TO_SUPPLY] = orders_left_quantities[sorted(or
     axis=1)
 orders_left_quantities = orders_left_quantities.reset_index()
 
+dead_products = get_dying_products_by_n_orders(5).iloc[:, ::-1]
 # compare_sales_data(sales_df, full_products_availability_df)
